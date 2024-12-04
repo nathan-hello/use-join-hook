@@ -28,16 +28,14 @@ This means that the useJoin doesn't work at all unless if you're on and XPanel o
 to a processor. A method of mocking a processor is required for testing but is not implemented yet.
 */
 
-export function useJoin<
-  K extends string | undefined,
-  T extends keyof SignalMap,
-  R extends boolean = false
->(options: PUseJoin<K, T, R>): RUseJoin<K, T, R> {
-  const join = options.join.toString();
+export function useJoin<T extends keyof SignalMap>(
+  options: PUseJoin<T>
+): RUseJoin<T> {
+  const join = getJoin(options);
+
   const [state, setState] = useState<SignalMap[T]>(
     getInitialState(options.type, options?.mock?.initialValue) as SignalMap[T]
   );
-
   useEffect(() => {
     const id = CrComLib.subscribeState(options.type, join, setState as any);
     return () => {
@@ -47,42 +45,31 @@ export function useJoin<
 
   let pubState = crestronPublish(options, join);
 
-  if (isCrestronDevice() && options.mock) {
-    pubState = (v: SignalMap[T]) => {
-      const value = options.mock!.fn!(v);
-      triggerLog(options, join, true, v);
-
-      if (value === undefined) {
-        return;
-      }
-      if (options?.effects?.resetAfterMs) {
-        setTimeout(() => {
-          setState(getInitialState(options.type));
-        }, options.effects.resetAfterMs);
-      }
-
-      setState(value);
-    };
+  if (!isCrestronDevice() && options.mock) {
+    pubState = mockPublish(options, join, setState);
   }
 
-  const stateKey = options.key ? options.key : "state";
-  const pubKey = options.key
-    ? `pub${options.key.charAt(0).toUpperCase() + options.key.slice(1)}`
-    : "pubState";
+  if (options?.effects?.debounce) {
+    if (
+      options?.effects?.resetAfterMs &&
+      options?.effects?.debounce < options?.effects?.resetAfterMs
+    ) {
+      console.error(
+        `debounce for join ${join} is ${options.effects.debounce}, resetAfterMs for join is ${options.effects.resetAfterMs}\n`,
+        `setting the debounce to less than the resetAfterMs could lead to state collision issues!`
+      );
+    }
+    let deb = createStackedDebounce<T>(options?.effects?.debounce);
+    pubState = (v: SignalMap[T]) => deb(pubState, v);
+  }
 
-  const result = {
-    [stateKey]: state,
-    [pubKey]: pubState,
-  } as RUseJoin<K, T, R>;
-
-  return result;
+  return [state, pubState];
 }
 
-function crestronPublish<
-  K extends string | undefined,
-  T extends keyof SignalMap,
-  R extends boolean = false
->(options: PUseJoin<K, T, R>, join: string) {
+function crestronPublish<T extends keyof SignalMap>(
+  options: PUseJoin<T>,
+  join: string
+) {
   return (v: SignalMap[T]) => {
     CrComLib.publishEvent(options.type, join, v);
     triggerLog(options, join, false, v);
@@ -100,12 +87,30 @@ function crestronPublish<
   };
 }
 
-function triggerLog<
-  K extends string | undefined,
-  T extends keyof SignalMap,
-  R extends boolean = false
->(
-  options: PUseJoin<K, T, R>,
+function mockPublish<T extends keyof SignalMap>(
+  options: PUseJoin<T>,
+  join: string,
+  setState: React.Dispatch<React.SetStateAction<SignalMap[T]>>
+) {
+  return (v: SignalMap[T]) => {
+    const value = options.mock!.fn!(v);
+    triggerLog(options, join, true, v);
+
+    if (value === undefined) {
+      return;
+    }
+    if (options?.effects?.resetAfterMs) {
+      setTimeout(() => {
+        setState(getInitialState(options.type));
+      }, options.effects.resetAfterMs);
+    }
+
+    setState(value);
+  };
+}
+
+function triggerLog<T extends keyof SignalMap>(
+  options: PUseJoin<T>,
   join: string,
   isMock: boolean,
   value: SignalMap[T]
@@ -115,7 +120,7 @@ function triggerLog<
   }
   let str = "";
 
-  if ((isMock = true)) {
+  if (isMock === true) {
     str += "mock: ";
   }
   if (typeof options.log === "function") {
@@ -137,20 +142,62 @@ function triggerLog<
   console.log(str);
 }
 
+function createStackedDebounce<T extends keyof SignalMap>(interval: number) {
+  let actionStack: { fn: (v: SignalMap[T]) => void; value: SignalMap[T] }[] =
+    [];
+  let timer: NodeJS.Timeout | undefined = undefined;
+
+  return function debounce(fn: (v: SignalMap[T]) => void, value: SignalMap[T]) {
+    actionStack.push({ fn, value });
+
+    if (!timer) {
+      timer = setInterval(() => {
+        if (actionStack.length === 0) {
+          clearInterval(timer);
+          timer = undefined;
+          return;
+        }
+
+        const curr = actionStack.shift();
+        if (curr !== undefined) {
+          const { fn, value } = curr;
+          fn(value);
+        }
+      }, interval);
+    }
+  };
+}
+
+function getJoin<T extends keyof SignalMap>(options: PUseJoin<T>): string {
+  let join = options.join;
+  if (typeof join === "string") {
+    return join;
+  }
+  if (options.offset === undefined) {
+    return join.toString();
+  }
+
+  if (typeof options.offset === "number") {
+    join = join + options.offset;
+  } else {
+    const offset = options.offset[options.type];
+    if (offset) {
+      join = offset + join;
+    }
+  }
+  return join.toString();
+}
+
 type SignalMap = {
   boolean: boolean;
   number: number;
   string: string;
 };
 
-export type PUseJoin<
-  K extends string | undefined,
-  T extends keyof SignalMap,
-  R extends boolean = false
-> = {
-  key: K;
+export type PUseJoin<T extends keyof SignalMap> = {
+  key?: string;
   join: number | string;
-  offset?: number;
+  offset?: number | { boolean?: number; number?: number; string?: number };
   type: T;
   mock?: {
     initialValue?: SignalMap[T];
@@ -162,32 +209,20 @@ export type PUseJoin<
         join: string,
         value: SignalMap[T],
         isMock: boolean,
-        key: K
+        key?: string
       ) => string | void);
   effects?: {
-    readOnly?: R;
+    debounce?: number;
+    readOnly?: boolean;
     resetAfterMs?: number;
     toggle?: boolean;
   };
 };
 
-export type JState<
-  K extends string | undefined,
-  T extends keyof SignalMap
-> = K extends string ? { [key in K]: SignalMap[T] } : { state: SignalMap[T] };
-
-export type JPubState<
-  K extends string | undefined,
-  T extends keyof SignalMap
-> = K extends string
-  ? { [key in `pub${Capitalize<K>}`]: (v: SignalMap[T]) => void }
-  : { pubState: (v: SignalMap[T]) => void };
-
-export type RUseJoin<
-  K extends string | undefined,
-  T extends keyof SignalMap,
-  R extends boolean = false
-> = JState<K, T> & (R extends true ? {} : JPubState<K, T>);
+export type RUseJoin<T extends keyof SignalMap> = [
+  SignalMap[T],
+  (v: SignalMap[T]) => void
+];
 
 function getInitialState<T extends keyof SignalMap>(
   signalType: T,
