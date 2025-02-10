@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import { useDebouncedCallback } from "use-debounce";
 
 export function useJoin<T extends keyof SignalMap>(
   options: PUseJoin<T>,
@@ -38,13 +37,18 @@ export function useJoin<T extends keyof SignalMap>(
     pubState = wrapPublish;
   }
 
-  // This hook is outside of the if statement to follow the Rules of React.
-  const debounced = useDebouncedCallback(
-    pubState,
-    options?.effects?.debounce ?? 0,
-  );
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   if (options?.effects?.debounce) {
-    pubState = debounced;
+    const realPublish = pubState;
+    const wrapPublish = (v: SignalMap[T]) => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+      debounceTimeoutRef.current = setTimeout(() => {
+        realPublish(v);
+      }, options?.effects?.debounce ?? 0);
+    };
+    pubState = wrapPublish;
   }
 
   return [state, pubState];
