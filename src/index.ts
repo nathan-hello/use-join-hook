@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { CrComLib } from "@pepperdash/ch5-crcomlib-lite";
+import { MockCrComLib } from "./mock.js";
+import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
+import { useMocks } from "./mock-context.js";
 
 export function useJoin<T extends keyof SignalMap>(
   options: PUseJoin<T>,
@@ -7,8 +9,15 @@ export function useJoin<T extends keyof SignalMap>(
   const join = getJoin(options);
 
   const [state, setState] = useState<SignalMap[T]>(
-    getInitialState(options.type, options?.mock?.initialValue),
+    { boolean: false, number: 0, string: "" }[options.type],
   );
+
+  const mocks = useMocks();
+  const CrComLib =
+    RealCrComLib.isCrestronTouchscreen() || RealCrComLib.isIosDevice()
+      ? RealCrComLib
+      : new MockCrComLib(mocks);
+
   useEffect(() => {
     const id = CrComLib.subscribeState(options.type, join, setState as any);
     return () => {
@@ -18,20 +27,8 @@ export function useJoin<T extends keyof SignalMap>(
 
   let pubState = (v: SignalMap[T]) => {
     CrComLib.publishEvent(options.type, join, v);
-    triggerLog(options, join, false, v);
+    triggerLog(options, join, v);
   };
-
-  if (!isCrestronDevice() && options?.mock?.fn) {
-    // Assigning options.mock.fn to a variable because typescript thinks it is "potentially undefined" otherwise.
-    const mockFn = options.mock.fn;
-    pubState = (v: SignalMap[T]) => {
-      const value = mockFn(v);
-      triggerLog(options, join, true, v);
-      if (value) {
-        setState(value);
-      }
-    };
-  }
 
   if (options?.effects?.resetAfterMs) {
     const realPublish = pubState;
@@ -66,7 +63,6 @@ export function useJoin<T extends keyof SignalMap>(
 function triggerLog<T extends keyof SignalMap>(
   options: PUseJoin<T>,
   join: string,
-  isMock: boolean,
   value: SignalMap[T],
 ) {
   if (options.log === undefined || options.log === false) {
@@ -74,11 +70,8 @@ function triggerLog<T extends keyof SignalMap>(
   }
   let str = "";
 
-  if (isMock === true) {
-    str += "mock: ";
-  }
   if (typeof options.log === "function") {
-    const ret = options.log(join, value, isMock, options.key);
+    const ret = options.log(join, value, options.key);
     if (ret === undefined) {
       return;
     } else {
@@ -116,7 +109,7 @@ function getJoin<T extends keyof SignalMap>(options: PUseJoin<T>): string {
   return join.toString();
 }
 
-type SignalMap = {
+export type SignalMap = {
   boolean: boolean;
   number: number;
   string: string;
@@ -139,36 +132,12 @@ export type PUseJoin<T extends keyof SignalMap> = {
    */
   type: T;
   /**
-   * Mock allows you to set an initialValue as if the Crestron system set it to this at startup,
-   * as well as making a function that should emulate the behavior of your Crestron program.
-   * In the future, this could be useful for a testing framework.
-   * Mocks are only used if `CrComLib.isCrestronTouchpanel()` and `CrComLib.isIosDevice()`
-   * are both false and the mock object is defined.
-   */
-  mock?: {
-    /**
-     * Set the value of this variable to something on initialization. This will be redone
-     * every time the React component that calls `useJoin()` unrenders and rerenders.
-     */
-    initialValue?: SignalMap[T];
-    /**
-     * A function that takes the value in `type`. If you return a value from this function,
-     * the state will update to that value.
-     */
-    fn?: (v: SignalMap[T]) => SignalMap[T] | void;
-  };
-  /**
    * If `log` is true, then it will console.log() a default string such as `key <key> join <join> sent value <value>`.
    * If `log` is a function, then that function will be supplied with four values: join, value, isMock, and key (if key is defined).
    */
   log?:
     | boolean
-    | ((
-        join: string,
-        value: SignalMap[T],
-        isMock: boolean,
-        key?: string,
-      ) => string | void);
+    | ((join: string, value: SignalMap[T], key?: string) => string | void);
   /**
    * Used for logging and your own documentation.
    */
@@ -195,17 +164,3 @@ export type RUseJoin<T extends keyof SignalMap> = [
   SignalMap[T],
   (v: SignalMap[T]) => void,
 ];
-
-function getInitialState<T extends keyof SignalMap>(
-  signalType: T,
-  initialState?: SignalMap[T],
-): SignalMap[T] {
-  if (!isCrestronDevice() && initialState) {
-    return initialState;
-  }
-  return { boolean: false, number: 0, string: "" }[signalType];
-}
-
-function isCrestronDevice() {
-  return CrComLib.isCrestronTouchscreen() || CrComLib.isIosDevice();
-}
