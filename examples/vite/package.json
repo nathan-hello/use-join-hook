@@ -4,17 +4,22 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --debug",
+    "lint": "tsc -b",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "archive": "ch5-cli archive -p att-conference -d dist -o archive",
+    "send:panel": "ch5-cli deploy -p -H 172.22.27.149 -t touchscreen archive/att-conference.ch5z",
+    "ch5-build": "npm run build && npm run archive",
+    "deploy": "npm run build && npm run archive && npm run send:panel",
+    "joins": "./src/joins/utils/prettify.js > ./src/joins/joins.json"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.0.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwindcss": "^4.0.6",
-    "use-join": "^1.1.0"
+    "use-join": "^1.3.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.8",

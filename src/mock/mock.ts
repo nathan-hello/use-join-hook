@@ -1,4 +1,4 @@
-import type { SignalMap } from "./index.js";
+import type { SignalMap } from "../index.js";
 
 export interface CrComLibInterface {
   subscribeState<T extends keyof SignalMap>(

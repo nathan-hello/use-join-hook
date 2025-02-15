@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { MockCrComLib } from "./mock.js";
+import { MockCrComLib } from "./mock/mock.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import { useMocks } from "./mock-context.js";
+import { useMocks } from "./mock/context.js";
+export * from "./mock/mock.js"
+export * from "./mock/context.js"
 
 export function useJoin<T extends keyof SignalMap>(
   options: PUseJoin<T>,
