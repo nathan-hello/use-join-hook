@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import { type TMock } from "./mock.js";
+import { type TMock } from "@/mock.js";
 
 export const MocksContext = createContext<TMock<any, any>[]>([]);
 

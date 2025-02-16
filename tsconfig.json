@@ -10,7 +10,7 @@
     "resolveJsonModule": true,
     "moduleDetection": "force",
     "isolatedModules": true,
-    "verbatimModuleSyntax": true,
+    "verbatimModuleSyntax": false,
 
     /* Strictness */
     "strict": true,
@@ -30,11 +30,9 @@
     "declarationMap": true,
 
     "jsx": "react-jsx",
-    "compilerOptions": {
-      "baseUrl": ".",
-      "paths": {
-        "@/*": ["./src/*"]
-      }
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
     },
     /* If your code runs in the DOM: */
     "lib": ["es2022", "dom", "dom.iterable"]
