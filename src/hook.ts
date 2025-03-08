@@ -14,6 +14,9 @@ export function useJoin<T extends keyof SignalMap>(
   const CrComLib =
     RealCrComLib.isCrestronTouchscreen() || RealCrComLib.isIosDevice()
       ? RealCrComLib
+        // Technically this violates React Rule "Only call Hooks at the top level",
+        // but in our case, this call never changes during runtime. Either the device is Crestron and will
+        // always use RealCrComLib or is not and will always have useMocks() as a part of this hook.
       : new MockCrComLib(useMocks());
 
   useEffect(() => {
@@ -63,7 +66,8 @@ function triggerLog<T extends keyof SignalMap>(
   join: string,
   value: SignalMap[T],
 ) {
-  if (options.log === undefined || options.log === false) {
+  // Only disable log if `false` has been specified.
+  if (options.log === false) {
     return;
   }
   let str = "";
@@ -126,6 +130,7 @@ export type PUseJoin<T extends keyof SignalMap> = {
    */
   type: T;
   /**
+   * If `log` is undefined, it is defaulted to true. To disable logs for a join, pass in `false`.
    * If `log` is true, then it will console.log() a default string such as `key <key> join <join> sent value <value>`.
    * If `log` is a function, then that function will be supplied with four values: join, value, isMock, and key (if key is defined).
    */
