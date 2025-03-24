@@ -1,10 +1,32 @@
 import { useState, useEffect, useRef } from "react";
 import { MockCrComLib, useMocks } from "@/mock.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
+import {
+  PUseJoinArray,
+  RUseJoinArray,
+  SignalMapArray,
+  useJoinArray,
+} from "@/array.js";
 
+function isArrayJoin<T extends keyof SignalMap>(
+  options: PUseJoin<T> | PUseJoinArray<T>,
+): options is PUseJoinArray<T> {
+  return Array.isArray(options.join);
+}
+
+export function useJoin<T extends keyof SignalMapArray>(
+  options: PUseJoinArray<T>,
+): RUseJoinArray<T>;
 export function useJoin<T extends keyof SignalMap>(
   options: PUseJoin<T>,
-): RUseJoin<T> {
+): RUseJoin<T>;
+export function useJoin<T extends keyof SignalMap>(
+  options: PUseJoin<T> | PUseJoinArray<T>,
+): RUseJoin<T> | RUseJoinArray<T> {
+  if (isArrayJoin(options)) {
+    return useJoinArray(options);
+  }
+
   const join = getJoin(options);
 
   const [state, setState] = useState<SignalMap[T]>(

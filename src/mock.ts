@@ -2,11 +2,11 @@ import { SignalMap } from "@/hook.js";
 
 export * from "./context.js";
 
-export interface CrComLibInterface {
+export type CrComLibInterface = {
   subscribeState<T extends keyof SignalMap>(
     type: T,
     join: string,
-    callback: any,
+    callback: (value: SignalMap[T]) => void,
   ): string;
   unsubscribeState<T extends keyof SignalMap>(
     type: T,
@@ -18,22 +18,20 @@ export interface CrComLibInterface {
     join: string,
     value: SignalMap[T],
   ): void;
-}
+};
 
-type Store<T extends keyof SignalMap> = [
-  SignalMap[T],
-  (v: SignalMap[T]) => void,
-];
+type JoinStore = {
+  value: SignalMap[keyof SignalMap];
+  type: keyof SignalMap;
+  callbacks: Set<(value: any) => void>;
+};
 
 export class MockCrComLib implements CrComLibInterface {
-  private _digital = new Map<string, [boolean, (v: boolean) => void]>();
-  private _analog = new Map<string, [number, (v: number) => void]>();
-  private _string = new Map<string, [string, (v: string) => void]>();
-
-  private _mocks: TMock<keyof SignalMap, keyof SignalMap>[];
+  private store = new Map<string, JoinStore>();
+  private mocks: TMock<keyof SignalMap, keyof SignalMap>[];
 
   constructor(mocks: TMock<keyof SignalMap, keyof SignalMap>[]) {
-    this._mocks = mocks;
+    this.mocks = mocks;
   }
 
   subscribeState<T extends keyof SignalMap>(
@@ -41,25 +39,23 @@ export class MockCrComLib implements CrComLibInterface {
     join: string,
     callback: (value: SignalMap[T]) => void,
   ): string {
-    if (type === "boolean") {
-      if (!this._digital.has(join)) {
-        this._digital.set(join, [false, callback as any]);
-      }
+    const key = join;
+
+    if (!this.store.has(key)) {
+      this.store.set(key, {
+        value: this.getDefaultValue(type),
+        type,
+        callbacks: new Set(),
+      });
     }
 
-    if (type === "number") {
-      if (!this._analog.has(join)) {
-        this._analog.set(join, [0, callback as any]);
-      }
-    }
+    const store = this.store.get(key)!;
+    store.callbacks.add(callback);
 
-    if (type === "string") {
-      if (!this._string.has(join)) {
-        this._string.set(join, ["", callback as any]);
-      }
-    }
+    // Initial value callback
+    callback(store.value as SignalMap[T]);
 
-    return `${type} ${join}`;
+    return key;
   }
 
   unsubscribeState<T extends keyof SignalMap>(
@@ -67,7 +63,10 @@ export class MockCrComLib implements CrComLibInterface {
     join: string,
     id: string,
   ): void {
-    return;
+    const store = this.store.get(id);
+    if (store) {
+      store.callbacks.clear();
+    }
   }
 
   publishEvent<T extends keyof SignalMap>(
@@ -75,62 +74,66 @@ export class MockCrComLib implements CrComLibInterface {
     join: string,
     value: SignalMap[T],
   ): void {
-    const t = this.subscribeState(type, join, () => {
-      throw Error("this function should not be ran");
-    }).split(" ") as [string, string];
+    const key = join;
 
-    // @ts-ignore-next-line
-    let f: Store<T> = [];
-
-    if (t[0] === "boolean") {
-      f = this._digital.get(t[1])! as unknown as Store<T>;
+    if (!this.store.has(key)) {
+      this.store.set(key, {
+        value,
+        type,
+        callbacks: new Set(),
+      });
     }
 
-    if (t[0] === "number") {
-      f = this._analog.get(t[1])! as unknown as Store<T>;
-    }
+    const store = this.store.get(key)!;
+    store.value = value;
 
-    if (t[0] === "string") {
-      f = this._string.get(t[1])! as unknown as Store<T>;
-    }
+    // Notify all callbacks
+    store.callbacks.forEach((callback) => callback(value));
 
-    if (f === undefined) {
-    }
-
-    if (f === undefined) {
-      throw Error("join not found!");
-    }
-
-    f[1](value);
-
+    // Process interdependencies
     this.processInterdependencies(type, join, value);
+  }
+
+  private getDefaultValue<T extends keyof SignalMap>(type: T): SignalMap[T] {
+    const defaults: SignalMap = {
+      boolean: false,
+      number: 0,
+      string: "",
+    };
+    return defaults[type];
   }
 
   private processInterdependencies<T extends keyof SignalMap>(
     type: T,
     join: string,
     value: SignalMap[T],
-  ) {
-    const defaults: SignalMap = { boolean: false, number: 0, string: "" };
-    this._mocks.forEach((mock) => {
+  ): void {
+    this.mocks.forEach((mock) => {
       if (
         mock.trigger.type === type &&
         mock.trigger.join === join &&
         mock.trigger.condition(value)
       ) {
         mock.effects.forEach((effect) => {
-          const digitals = this._store.get(effect.join);
-          if (!join) {
-            throw Error(
-              `tried to compute effect for join ${effect.join} and it was undefined`,
-            );
+          const store = this.store.get(effect.join);
+          if (!store) {
+            this.store.set(effect.join, {
+              value: this.getDefaultValue(effect.type),
+              type: effect.type,
+              callbacks: new Set(),
+            });
           }
 
+          const currentValue = this.store.get(effect.join)
+            ?.value as SignalMap[typeof effect.type];
           const newValue = effect.compute(
             value,
-            join[0],
-            (join, type) => this._store.get(join)[0],
+            currentValue,
+            (join, type) =>
+              (this.store.get(join)?.value ??
+                this.getDefaultValue(type)) as SignalMap[typeof type],
           );
+
           this.publishEvent(effect.type, effect.join, newValue);
         });
       }
@@ -150,18 +153,16 @@ export type TMock<T extends keyof SignalMap, E extends keyof SignalMap> = {
     join: string;
     condition: (value: SignalMap[T]) => boolean;
   };
-  effects: [
-    {
-      type: E;
-      join: string;
-      compute: (
-        triggerValue: SignalMap[T],
-        currentValue: SignalMap[E],
-        getValue: <K extends keyof SignalMap>(
-          join: string,
-          type: K,
-        ) => SignalMap[K],
-      ) => SignalMap[E];
-    },
-  ];
+  effects: Array<{
+    type: E;
+    join: string;
+    compute: (
+      triggerValue: SignalMap[T],
+      currentValue: SignalMap[E],
+      getValue: <K extends keyof SignalMap>(
+        join: string,
+        type: K,
+      ) => SignalMap[K],
+    ) => SignalMap[E];
+  }>;
 };
