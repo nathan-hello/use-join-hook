@@ -1,7 +1,5 @@
 import { SignalMap } from "@/hook.js";
 
-export * from "./context.js";
-
 export type CrComLibInterface = {
   subscribeState<T extends keyof SignalMap>(
     type: T,
