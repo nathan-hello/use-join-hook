@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MockCrComLib } from "@/mock.js";
+import { CrComLibInterface, MockCrComLib } from "@/mock.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import {
   MultiJoin,
@@ -42,14 +42,21 @@ export function useJoin<T extends keyof SignalMap>(
 
   const CrComLib =
     RealCrComLib.isCrestronTouchscreen() || RealCrComLib.isIosDevice()
-      ? RealCrComLib
+      ? (RealCrComLib as CrComLibInterface)
       : // Technically this violates React Rule "Only call Hooks at the top level",
         // but in our case, this call never changes during runtime. Either the device is Crestron and will
         // always use RealCrComLib or is not and will always have useMocks() as a part of this hook.
-        new MockCrComLib(useMocks());
+        (new MockCrComLib(useMocks()) as CrComLibInterface);
 
   useEffect(() => {
-    const id = CrComLib.subscribeState(options.type, join, setState as any);
+    const id = CrComLib.subscribeState(
+      options.type,
+      join,
+      function cb(value: SignalMap[T]) {
+        triggerLog({ options, join, direction: "recieved", value });
+        setState(value);
+      },
+    );
     return () => {
       CrComLib.unsubscribeState(options.type, join, id);
     };
@@ -57,7 +64,7 @@ export function useJoin<T extends keyof SignalMap>(
 
   let pubState = (v: SignalMap[T]) => {
     CrComLib.publishEvent(options.type, join, v);
-    triggerLog(options, join, v);
+    triggerLog({ options, join, value: v, direction: "sent" });
   };
 
   if (options?.effects?.resetAfterMs) {
@@ -72,10 +79,9 @@ export function useJoin<T extends keyof SignalMap>(
 }
 
 function triggerLog<T extends keyof SignalMap>(
-  options: PUseJoin<T>,
-  join: string,
-  value: SignalMap[T],
+  params: LogOptions<T, SingleJoin>,
 ) {
+  const { direction, join, options, value } = params;
   // Only disable log if `false` has been specified.
   if (options.log === false) {
     return;
@@ -83,7 +89,7 @@ function triggerLog<T extends keyof SignalMap>(
   let str = "";
 
   if (typeof options.log === "function") {
-    const ret = options.log(join, value, options.key);
+    const ret = options.log(params);
     if (ret === undefined) {
       return;
     } else {
@@ -95,7 +101,7 @@ function triggerLog<T extends keyof SignalMap>(
     if (options.key !== undefined) {
       str += `key ${options.key} `;
     }
-    str += `join ${join} sent value: ${value}`;
+    str += `join ${join} ${direction} value: ${value}`;
   }
 
   console.log(str);
@@ -168,14 +174,7 @@ export type PUseJoin<T extends keyof SignalMap, K = SingleJoin> = {
        * If `log` is true, then it will console.log() a default string such as `key <key> join <join> sent value <value>`.
        * If `log` is a function, then that function will be supplied with four values: join, value, isMock, and key (if key is defined).
        */
-      log?:
-        | boolean
-        | ((
-            join: string,
-            value: SignalMap[T],
-            index: number,
-            key?: string,
-          ) => string | void);
+      log?: boolean | ((args: LogOptions<T, MultiJoin>) => string | void);
     }
   : {
       /**
@@ -183,10 +182,18 @@ export type PUseJoin<T extends keyof SignalMap, K = SingleJoin> = {
        * If `log` is true, then it will console.log() a default string such as `key <key> join <join> sent value <value>`.
        * If `log` is a function, then that function will be supplied with four values: join, value, isMock, and key (if key is defined).
        */
-      log?:
-        | boolean
-        | ((join: string, value: SignalMap[T], key?: string) => string | void);
+      log?: boolean | ((args: LogOptions<T, SingleJoin>) => string | void);
     });
+
+export type LogOptions<
+  T extends keyof SignalMap,
+  K extends SingleJoin | MultiJoin,
+> = {
+  options: PUseJoin<T, K>;
+  join: string;
+  direction: "sent" | "recieved";
+  value: SignalMap[T];
+} & (K extends MultiJoin ? { index: number } : { index?: undefined });
 export type RUseJoin<T extends keyof SignalMap> = [
   SignalMap[T],
   (v: SignalMap[T]) => void,
