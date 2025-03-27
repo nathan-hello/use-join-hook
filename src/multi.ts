@@ -1,26 +1,19 @@
 // This file is exported for internal use only.
-// To use useJoinArray, pass in an array to options.join
+// To use useJoinArray, pass in an array or {start: number; end: number} to options.join
 
 import { useState, useEffect } from "react";
 import { CrComLibInterface, MockCrComLib } from "@/mock.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import { PUseJoin, SignalMap } from "@/hook.js";
+import { MultiJoin, PUseJoin, SignalMap } from "@/hook.js";
 import { useMocks } from "@/context.js";
 import { pubWithTimeoutMulti, useDebounceMulti } from "@/effects.js";
-
-export type isMultiJoin<T> = T extends MultiJoinObject
-  ? true
-  : T extends Array<any>
-    ? true
-    : false;
-export type MultiJoin = number[] | string[] | MultiJoinObject;
-type MultiJoinObject = { start: number; end: number };
+import { LogOptions } from "./hook.js";
 
 // This file is exported for internal use only.
 // To use useJoinArray, pass in an array to options.join in useJoin
-export function useJoinArray<T extends keyof SignalMap>(
+export function useJoinMulti<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
-): RUseJoinArray<T> {
+): RUseJoinMulti<T> {
   const [joins, initialState] = getJoin(options);
   const [state, setState] = useState<SignalMap[T][]>(initialState);
 
@@ -30,20 +23,20 @@ export function useJoinArray<T extends keyof SignalMap>(
       : (new MockCrComLib(useMocks()) as CrComLibInterface);
 
   useEffect(() => {
-    const ids = joins.map((join, idx) => {
+    const ids = joins.map((join, index) => {
       const id = CrComLib.subscribeState(
         options.type,
         join.toString(),
         function cb(value) {
-          triggerLog(options, join, value, idx);
+          triggerLog({ options, join, value, index, direction: "recieved" });
           setState((prev) => {
             const old = [...prev];
-            old[idx] = value;
+            old[index] = value;
             return old;
           });
         },
       );
-      return { id, join: join.toString(), idx };
+      return { id, join: join.toString(), idx: index };
     });
 
     return () => {
@@ -53,28 +46,27 @@ export function useJoinArray<T extends keyof SignalMap>(
     };
   }, [options.join]);
 
-  let pubState = (values: SignalMap[T][], index?: number) => {
-    if (values.length !== joins.length) {
+  let pubState = (
+    values: SignalMap[T][],
+    single?: { index: number; value: SignalMap[T] },
+  ) => {
+    if (values.length !== joins.length && !single) {
       console.error("Published values length does not match join length");
     }
 
-    if (index) {
-      if (joins[index] && values[index]) {
-        CrComLib.publishEvent(options.type, joins[index], values[index]);
+    if (single) {
+      if (joins[single.index]) {
+        CrComLib.publishEvent(options.type, joins[single.index]!, single.value);
       } else {
-        console.error(
-          "index is larger than join and/or values array",
-          joins,
-          values,
-        );
+        console.error(`joins[${single.index}] does not exist. joins: ${joins}`);
       }
       return;
     }
 
-    values.forEach((value, idx) => {
-      const joinStr = joins[idx]!.toString();
+    values.forEach((value, index) => {
+      const joinStr = joins[index]!.toString();
       CrComLib.publishEvent(options.type, joinStr, value);
-      triggerLog(options, joinStr, value, idx);
+      triggerLog({ options, join: joinStr, value, index, direction: "sent" });
     });
   };
 
@@ -90,23 +82,23 @@ export function useJoinArray<T extends keyof SignalMap>(
 }
 
 function triggerLog<T extends keyof SignalMap>(
-  options: PUseJoin<T, MultiJoin>,
-  join: string,
-  value: SignalMap[T],
-  index: number,
+  params: LogOptions<T, MultiJoin>,
 ) {
-  if (!options.log) return;
+  const { direction, index, join, options, value } = params;
+  if (options.log === false) return;
 
-  let str = "";
   if (typeof options.log === "function") {
-    const ret = options.log(join, value, index, options.key);
-    if (ret === undefined) return;
-    str = ret;
-  } else if (options.log === true) {
-    str = `${options.key ? `key ${options.key}[${index}] ` : ""}join ${join} sent value: ${value}`;
+    const ret = options.log(params);
+    if (ret === undefined) {
+      return;
+    }
+    console.log(ret);
+    return;
   }
 
-  console.log(str);
+  console.log(
+    `${options.type} ${options.key ? `key ${options.key}[${index}] ` : ""}join ${join} ${direction} value: ${value}`,
+  );
 }
 
 function getJoin<T extends keyof SignalMap>(
@@ -144,7 +136,7 @@ function getJoin<T extends keyof SignalMap>(
   return [arr, ini];
 }
 
-export type RUseJoinArray<T extends keyof SignalMap> = [
+export type RUseJoinMulti<T extends keyof SignalMap> = [
   SignalMap[T][],
   (v: SignalMap[T][]) => void,
 ];

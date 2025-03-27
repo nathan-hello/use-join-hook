@@ -1,16 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { CrComLibInterface, MockCrComLib } from "@/mock.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import {
-  MultiJoin,
-  isMultiJoin,
-  RUseJoinArray,
-  useJoinArray,
-} from "@/multi.js";
+import { useJoinMulti, RUseJoinMulti } from "@/multi.js";
 import { useMocks } from "@/context.js";
 import { useDebounce, pubWithTimeout } from "@/effects.js";
 
-// Remove the K generic from type predicate
 function joinIsArray<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin> | PUseJoin<T, MultiJoin>,
 ): options is PUseJoin<T, MultiJoin> {
@@ -20,18 +14,17 @@ function joinIsArray<T extends keyof SignalMap>(
   );
 }
 
-// Modify function signatures to be more specific
 export function useJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
-): RUseJoinArray<T>;
+): RUseJoinMulti<T>;
 export function useJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin>,
 ): RUseJoin<T>;
 export function useJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin> | PUseJoin<T, MultiJoin>,
-): RUseJoin<T> | RUseJoinArray<T> {
+): RUseJoin<T> | RUseJoinMulti<T> {
   if (joinIsArray(options)) {
-    return useJoinArray(options);
+    return useJoinMulti(options);
   }
 
   const join = getJoin(options);
@@ -46,6 +39,7 @@ export function useJoin<T extends keyof SignalMap>(
       : // Technically this violates React Rule "Only call Hooks at the top level",
         // but in our case, this call never changes during runtime. Either the device is Crestron and will
         // always use RealCrComLib or is not and will always have useMocks() as a part of this hook.
+        // If this changes between renders, React will throw.
         (new MockCrComLib(useMocks()) as CrComLibInterface);
 
   useEffect(() => {
@@ -86,28 +80,24 @@ function triggerLog<T extends keyof SignalMap>(
   if (options.log === false) {
     return;
   }
-  let str = "";
 
   if (typeof options.log === "function") {
     const ret = options.log(params);
     if (ret === undefined) {
       return;
-    } else {
-      str += ret;
     }
+    console.log(ret);
+    return;
   }
 
-  if (options.log === true) {
-    if (options.key !== undefined) {
-      str += `key ${options.key} `;
-    }
-    str += `join ${join} ${direction} value: ${value}`;
-  }
-
-  console.log(str);
+  console.log(
+    `${options.type} ${options.key ? `key ${options.key}` : ""}join ${join} ${direction} value: ${value}`,
+  );
 }
 
-function getJoin<T extends keyof SignalMap>(options: PUseJoin<T>): string {
+function getJoin<T extends keyof SignalMap>(
+  options: PUseJoin<T, SingleJoin>,
+): string {
   let join = options.join;
   if (typeof join === "string") {
     return join;
@@ -127,11 +117,20 @@ function getJoin<T extends keyof SignalMap>(options: PUseJoin<T>): string {
   return join.toString();
 }
 
-type SingleJoin = number | string;
+export type MultiJoin = number[] | string[] | MultiJoinObject;
+/**
+ * An object specifiying the start and end join numbers.
+ * `{start: 10, end: 15}` will evaluate to [10, 11, 12, 13, 14, 15]
+ */
+export type MultiJoinObject = { start: number; end: number };
+export type SingleJoin = number | string;
 
 export type SignalMap = { boolean: boolean; number: number; string: string };
 
-export type PUseJoin<T extends keyof SignalMap, K = SingleJoin> = {
+export type PUseJoin<
+  T extends keyof SignalMap,
+  K extends SingleJoin | MultiJoin,
+> = {
   /**
    * Join number / string over which the Crestron system is going to subscribe/publish.
    */
@@ -152,6 +151,13 @@ export type PUseJoin<T extends keyof SignalMap, K = SingleJoin> = {
    */
   key?: string;
   /**
+   * If true, console.log a default message for every message sent/recieved.
+   * If a function, you will be able to implement your own logging function.
+   *  - The return goes into a console.log().
+   *  - You can return nothing if you want to handle logging yourself.
+   */
+  log?: boolean | LogFunction<T, K>;
+  /**
    * Effects is an object which affects how the publish function works.
    */
   effects?: {
@@ -167,23 +173,7 @@ export type PUseJoin<T extends keyof SignalMap, K = SingleJoin> = {
      */
     resetAfterMs?: number;
   };
-} & (isMultiJoin<K> extends true
-  ? {
-      /**
-       * If `log` is undefined, it is defaulted to true. To disable logs for a join, pass in `false`.
-       * If `log` is true, then it will console.log() a default string such as `key <key> join <join> sent value <value>`.
-       * If `log` is a function, then that function will be supplied with four values: join, value, isMock, and key (if key is defined).
-       */
-      log?: boolean | ((args: LogOptions<T, MultiJoin>) => string | void);
-    }
-  : {
-      /**
-       * If `log` is undefined, it is defaulted to true. To disable logs for a join, pass in `false`.
-       * If `log` is true, then it will console.log() a default string such as `key <key> join <join> sent value <value>`.
-       * If `log` is a function, then that function will be supplied with four values: join, value, isMock, and key (if key is defined).
-       */
-      log?: boolean | ((args: LogOptions<T, SingleJoin>) => string | void);
-    });
+};
 
 export type LogOptions<
   T extends keyof SignalMap,
@@ -193,7 +183,22 @@ export type LogOptions<
   join: string;
   direction: "sent" | "recieved";
   value: SignalMap[T];
-} & (K extends MultiJoin ? { index: number } : { index?: undefined });
+} & (K extends MultiJoin ? { index: number } : {});
+
+export type LogFunction<
+  T extends keyof SignalMap,
+  K extends SingleJoin | MultiJoin,
+> = (args: LogOptions<T, K>) => string | void;
+
+export type LogOptionsWithoutGenerics = LogOptions<
+  keyof SignalMap,
+  SingleJoin | MultiJoin
+>;
+
+export type LogFunctionWithoutGenerics = (
+  args: LogOptionsWithoutGenerics,
+) => string | void;
+
 export type RUseJoin<T extends keyof SignalMap> = [
   SignalMap[T],
   (v: SignalMap[T]) => void,
