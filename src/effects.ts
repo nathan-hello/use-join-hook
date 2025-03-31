@@ -1,12 +1,11 @@
-import { MultiJoin, isMultiJoin } from "@/multi.js";
-import { PUseJoin, SignalMap } from "@/hook.js";
+import { MultiJoin, PUseJoin, SignalMap, SingleJoin } from "@/hook.js";
 import { useRef } from "react";
 
 type SingleEffect<T extends keyof SignalMap> = (value: SignalMap[T]) => void;
 type ArrayEffect<T extends keyof SignalMap> = (value: SignalMap[T][]) => void;
 
 export function useDebounce<T extends keyof SignalMap>(
-  options: PUseJoin<T>,
+  options: PUseJoin<T, SingleJoin>,
   pubState: SingleEffect<T>,
 ): SingleEffect<T> {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -50,7 +49,7 @@ export function useDebounceMulti<T extends keyof SignalMap>(
 }
 
 export function pubWithTimeout<T extends keyof SignalMap>(
-  options: PUseJoin<T>,
+  options: PUseJoin<T, SingleJoin>,
   pubState: SingleEffect<T>,
 ): SingleEffect<T> {
   if (!options?.effects?.resetAfterMs) return pubState;

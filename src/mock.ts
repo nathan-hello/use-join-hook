@@ -1,5 +1,17 @@
 import { SignalMap } from "@/hook.js";
 
+// Global store for mocks
+declare global {
+  interface Window {
+    __CRESTRON_MOCKS__: TMock<keyof SignalMap, keyof SignalMap>[];
+    updateMock: (
+      join: string,
+      type: keyof SignalMap,
+      value: SignalMap[keyof SignalMap],
+    ) => void;
+  }
+}
+
 export type CrComLibInterface = {
   subscribeState<T extends keyof SignalMap>(
     type: T,
@@ -26,10 +38,17 @@ type JoinStore = {
 
 export class MockCrComLib implements CrComLibInterface {
   private store = new Map<string, JoinStore>();
-  private mocks: TMock<keyof SignalMap, keyof SignalMap>[];
 
   constructor(mocks: TMock<keyof SignalMap, keyof SignalMap>[]) {
-    this.mocks = mocks;
+    // Store mocks globally
+    window.__CRESTRON_MOCKS__ = mocks;
+    window.updateMock = (
+      join: string,
+      type: keyof SignalMap,
+      value: SignalMap[keyof SignalMap],
+    ) => {
+      this.publishEvent(type, join, value);
+    };
   }
 
   subscribeState<T extends keyof SignalMap>(
@@ -41,7 +60,7 @@ export class MockCrComLib implements CrComLibInterface {
 
     if (!this.store.has(key)) {
       this.store.set(key, {
-        value: this.getDefaultValue(type),
+        value: this.getDefaultValue(type, join),
         type,
         callbacks: new Set(),
       });
@@ -92,12 +111,27 @@ export class MockCrComLib implements CrComLibInterface {
     this.processInterdependencies(type, join, value);
   }
 
-  private getDefaultValue<T extends keyof SignalMap>(type: T): SignalMap[T] {
+  private getDefaultValue<T extends keyof SignalMap>(
+    type: T,
+    join: string,
+  ): SignalMap[T] {
     const defaults: SignalMap = {
       boolean: false,
       number: 0,
       string: "",
     };
+
+    // Check for exact join match in mocks
+    for (const mock of window.__CRESTRON_MOCKS__) {
+      if (
+        mock.trigger.type === type &&
+        mock.trigger.join === join &&
+        mock.trigger.defaultValue !== undefined
+      ) {
+        return mock.trigger.defaultValue as SignalMap[T];
+      }
+    }
+
     return defaults[type];
   }
 
@@ -106,7 +140,7 @@ export class MockCrComLib implements CrComLibInterface {
     join: string,
     value: SignalMap[T],
   ): void {
-    this.mocks.forEach((mock) => {
+    window.__CRESTRON_MOCKS__.forEach((mock) => {
       if (
         mock.trigger.type === type &&
         mock.trigger.join === join &&
@@ -116,7 +150,7 @@ export class MockCrComLib implements CrComLibInterface {
           const store = this.store.get(effect.join);
           if (!store) {
             this.store.set(effect.join, {
-              value: this.getDefaultValue(effect.type),
+              value: this.getDefaultValue(effect.type, effect.join),
               type: effect.type,
               callbacks: new Set(),
             });
@@ -129,7 +163,7 @@ export class MockCrComLib implements CrComLibInterface {
             currentValue,
             (join, type) =>
               (this.store.get(join)?.value ??
-                this.getDefaultValue(type)) as SignalMap[typeof type],
+                this.getDefaultValue(type, join)) as SignalMap[typeof type],
           );
 
           this.publishEvent(effect.type, effect.join, newValue);
@@ -149,6 +183,7 @@ export type TMock<T extends keyof SignalMap, E extends keyof SignalMap> = {
   trigger: {
     type: T;
     join: string;
+    defaultValue?: SignalMap[T];
     condition: (value: SignalMap[T]) => boolean;
   };
   effects: Array<{

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { CrComLibInterface, MockCrComLib } from "@/mock.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import { useJoinMulti, RUseJoinMulti } from "@/multi.js";
+import { useJoinMulti } from "@/multi.js";
 import { useMocks } from "@/context.js";
 import { useDebounce, pubWithTimeout } from "@/effects.js";
 
@@ -202,4 +202,9 @@ export type LogFunctionWithoutGenerics = (
 export type RUseJoin<T extends keyof SignalMap> = [
   SignalMap[T],
   (v: SignalMap[T]) => void,
+];
+
+export type RUseJoinMulti<T extends keyof SignalMap> = [
+  SignalMap[T][],
+  (v: SignalMap[T][]) => void,
 ];

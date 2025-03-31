@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { CrComLibInterface, MockCrComLib } from "@/mock.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import { MultiJoin, PUseJoin, SignalMap } from "@/hook.js";
+import { MultiJoin, PUseJoin, RUseJoinMulti, SignalMap } from "@/hook.js";
 import { useMocks } from "@/context.js";
 import { pubWithTimeoutMulti, useDebounceMulti } from "@/effects.js";
 import { LogOptions } from "./hook.js";
@@ -135,8 +135,3 @@ function getJoin<T extends keyof SignalMap>(
 
   return [arr, ini];
 }
-
-export type RUseJoinMulti<T extends keyof SignalMap> = [
-  SignalMap[T][],
-  (v: SignalMap[T][]) => void,
-];
