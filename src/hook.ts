@@ -151,6 +151,11 @@ export type PUseJoin<
    */
   key?: string;
   /**
+   * Unused param. Still useful for your own documentation.
+   * In the future, we could optimize the hook based on this param.
+   */
+  dir?: "input" | "output" | "bidirectional";
+  /**
    * If true, console.log a default message for every message sent/recieved.
    * If a function, you will be able to implement your own logging function.
    *  - The return goes into a console.log().
@@ -214,25 +219,32 @@ export type RUseJoinMulti<T extends keyof SignalMap> = [
  * Leaf nodes are type checked to be valid params to useJoin.
  * Use this for organizing all of your joins in one place.
  *
+ * Note the `as const satisfies JoinMap`. You have to do it this way for TS reasons.
+ *
  *Example usage:
  *```ts
- * const J: JoinMap = {
+ * const J = {
  *   Join1: { type: "boolean", join: 1, key: "Asdf" },
  *   Group1: {
  *     Join2: { type: "number", join: 2, key: "Fdsa" },
- *     Group2: {
- *       Join3: { type: "string", join: 3, key: "Zxcv" },
- *     },
  *   },
- * };
+ *   Group2: {
+ *     Join3: { type: "string", join: 3, key: "Zxcv" },
+ *   },
+ *   Group3: [
+ *     { type: "string", join: 4, key: "Vcxz" },
+ *     { type: "number", join: 5, key: "Qwer" },
+ *   ],
+ * } as const satisfies JoinMap;
+ *
+ *  function useAsdf() {
+ *    const [asdf, pubAsdf] = useJoin(J.Group1.Join2);
+ *  }
  * ```
  */
 export type JoinMap = {
-  [key: string]:
+  readonly [K: string]:
     | PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>
-    | {
-        [key: string]:
-          | PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>
-          | JoinMap;
-      };
+    | ReadonlyArray<PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>>
+    | { readonly [K: string]: JoinMap[string] };
 };
