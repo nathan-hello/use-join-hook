@@ -208,3 +208,31 @@ export type RUseJoinMulti<T extends keyof SignalMap> = [
   SignalMap[T][],
   (v: SignalMap[T][]) => void,
 ];
+
+/**
+ * A type helper to make it easier to store all of your joins in one object.
+ * Leaf nodes are type checked to be valid params to useJoin.
+ * Use this for organizing all of your joins in one place.
+ *
+ *Example usage:
+ *```ts
+ * const J: JoinMap = {
+ *   Join1: { type: "boolean", join: 1, key: "Asdf" },
+ *   Group1: {
+ *     Join2: { type: "number", join: 2, key: "Fdsa" },
+ *     Group2: {
+ *       Join3: { type: "string", join: 3, key: "Zxcv" },
+ *     },
+ *   },
+ * };
+ * ```
+ */
+export type JoinMap = {
+  [key: string]:
+    | PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>
+    | {
+        [key: string]:
+          | PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>
+          | JoinMap;
+      };
+};
