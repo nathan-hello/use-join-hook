@@ -117,7 +117,7 @@ function getJoin<T extends keyof SignalMap>(
   return join.toString();
 }
 
-export type MultiJoin = number[] | string[] | MultiJoinObject;
+export type MultiJoin = (number | string)[] | MultiJoinObject;
 /**
  * An object specifiying the start and end join numbers.
  * `{start: 10, end: 15}` will evaluate to [10, 11, 12, 13, 14, 15]
@@ -132,7 +132,26 @@ export type PUseJoin<
   K extends SingleJoin | MultiJoin,
 > = {
   /**
-   * Join number / string over which the Crestron system is going to subscribe/publish.
+   * If you want to subscribe and publish over a single join, give:
+   * ```ts
+   * number | string
+   * ```
+   *  - A join number or, in the case of Contracts and Reserved Joins, a string.
+   *
+   * If using multiple joins that are not in order, give:
+   * ```ts
+   * (number | string)[]
+   * ```
+   * - Each element will be subscribed to in order and the returned array
+   * will be the subscriptions from the Control Processor in that same order. Joins that
+   * do not exist on the processor will simply have the falsey value. Note that all of these
+   * joins will be over the same type as defined in `type`.
+   *
+   * If using a series of join numbers and they are in order, give:
+   * ```ts
+   * {start: number; end: number}
+   * ```
+   * - E.g. `{start: 10, end: 17}` will result in an array of `[10, 11, 12, 13, 14, 15, 16, 17]`.
    */
   join: K;
   /**
@@ -211,7 +230,7 @@ export type RUseJoin<T extends keyof SignalMap> = [
 
 export type RUseJoinMulti<T extends keyof SignalMap> = [
   SignalMap[T][],
-  (v: SignalMap[T][]) => void,
+  (v: SignalMap[T][], single?: { index: number; value: SignalMap[T] }) => void,
 ];
 
 /**

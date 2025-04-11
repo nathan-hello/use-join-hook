@@ -105,32 +105,40 @@ function getJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
 ): [string[], SignalMap[T][]] {
   let join = options.join;
-
   let arr: string[] = [];
-  let ini: SignalMap[T][] = [];
+
+  let offset = 0;
+
+  if (typeof options.offset === "number") {
+    offset = options.offset;
+  }
+  if (typeof options.offset === "object") {
+    offset = options.offset[options.type] ?? 0;
+  }
 
   if ("start" in join) {
-    // e.g. {start: 3, end: 8} evals to [3, 4, 5, 6, 7, 8]
     const len = join.end - join.start + 1;
-    arr = Array.from({ length: len }, (_, i) => {
-      const n = join.start + i;
-      return n.toString();
+    arr = Array.from({ length: len }, (_, i) =>
+      (join.start + i + offset).toString(),
+    );
+  } else {
+    arr = join.map((j) => {
+      if (typeof j === "string") {
+        return j;
+      }
+      const withOffset = j + offset;
+      return withOffset.toString();
     });
-    ini = new Array(arr.length).fill(
-      { boolean: false, number: 0, string: "" }[options.type],
-    );
-    return [arr, ini];
   }
 
-  if (join.length === 0) {
-    throw Error(
-      `useJoin "join" param was given an array of zero length: ${JSON.stringify(options)}`,
-    );
-  }
-
-  arr = join.map((j) => j.toString());
-  ini = new Array(arr.length).fill(
-    { boolean: false, number: 0, string: "" }[options.type],
+  const ini: SignalMap[T][] = Array.from(
+    { length: arr.length },
+    () =>
+      ({
+        boolean: false,
+        number: 0,
+        string: "",
+      })[options.type],
   );
 
   return [arr, ini];
