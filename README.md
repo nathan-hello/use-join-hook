@@ -24,8 +24,7 @@ function RoomPower() {
 ```
 
 This will send a true digital signal over join 1 for 50ms, then send a false digital signal.
-In your Simpl Windows, you have a Toggle that reports back to this component on the state. 
-`resetAfterMs` means you don't have to explicitly publish a false signal, it does so automatically after 50ms. 
+In your Simpl Windows, you use the true to send your command, and the component is subscribed to the feedback.
 
 It's a proper `useState` call, so when your Crestron Processor updates the digital value on join 1,
 it will send it down to the touchpanel. 
