@@ -132,6 +132,11 @@ export type PUseJoin<
   K extends SingleJoin | MultiJoin,
 > = {
   /**
+   * `"boolean" | "number" | "string"`. The CrComLib.publishEvent function
+   * allows for many more options than this but here it's constrained so it's easier to grep.
+   */
+  type: T;
+  /**
    * If you want to subscribe and publish over a single join, give:
    * ```ts
    * number | string
@@ -142,29 +147,22 @@ export type PUseJoin<
    * ```ts
    * (number | string)[]
    * ```
-   * - Each element will be subscribed to in order and the returned array
-   * will be the subscriptions from the Control Processor in that same order. Joins that
-   * do not exist on the processor will simply have the falsey value. Note that all of these
-   * joins will be over the same type as defined in `type`.
+   * - E.g. [10, 12, "Room.PowerOn"] will be an array with length 3 of whatever type specified in `type`.
+   * - The returned array will coorespond with the order of the joins.
+   * - If you publish over this array, for example `pubRoomPower([false, false, true])`, it will also be in order.
    *
    * If using a series of join numbers and they are in order, give:
    * ```ts
    * {start: number; end: number}
    * ```
-   * - E.g. `{start: 10, end: 17}` will result in an array of `[10, 11, 12, 13, 14, 15, 16, 17]`.
+   * - E.g. `{start: 10, end: 17}` is completely equivalent to `[10, 11, 12, 13, 14, 15, 16, 17]`.
    */
   join: K;
   /**
-   * Offset is used for join numbers such that you can have a default join number
-   * and then apply offsets. Suggested practice is to put these in a utils.ts file
-   * and have it available to export. An example of this is in examples/joins.ts
+   * Offset is a tool for composition. Its value is added to join numbers (not strings).
+   * If of type `number`, then the offset will apply to all joins equally.
    */
   offset?: number | { boolean?: number; number?: number; string?: number };
-  /**
-   * `"boolean" | "number" | "string"`. The CrComLib.publishEvent function
-   * allows for many more options than this but here it's constrained so it's easier to grep.
-   */
-  type: T;
   /**
    * Used for logging and your own documentation.
    */
@@ -267,3 +265,9 @@ export type JoinMap = {
     | ReadonlyArray<PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>>
     | { readonly [K: string]: JoinMap[string] };
 };
+
+const asdf = useJoin({
+  join: 1,
+  type: "boolean",
+  effects: { resetAfterMs: 50 },
+});

@@ -1,6 +1,6 @@
 # use-join-hook
 
-A React hook for interacting with Crestron processors.
+A typesafe React hook for interacting with Crestron processors.
 
 ### Install
 
@@ -11,26 +11,36 @@ npm install use-join
 bun install use-join
 ```
 
-Alternatively, because the hook is ~200 lines of typescript, feel free to copy+paste `src/index.ts`
-into a `hooks/` folder and import it from within your project. 
+Example:
 
-The only dependencies are React itself and `@pepperdash/ch5-crcomlib-lite`. 
-Because the latter is just a truncation of the proper `@crestron/ch5-crcomlib`, if you
-already have that as a dependency you can easily update the hook to use that instead. 
+```tsx
 
-If you go this route, all I ask if that you put in an issue/PR for any patches you make 
-that could be useful to others.
+function RoomPower() {
+  const [power, pubPower] = useJoin({join: 1, type: "boolean", effects: {resetAfterMs: 50}});
+  return (
+    <button onClick={() => pubPower(true)}>{power ? "On" : "Off"}</button>
+  )
+}
+```
 
-If you do use `npm/bun install` then this hook has everything required to talk to a Crestron processor. 
-This fact has only been tested with the vite config as per `examples/vite/vite.config.ts`. If you
-have this working differently in vite, or in another bundler, please cut an issue/PR!
+This will send a true digital signal over join 1 for 50ms, then send a false digital signal.
+In your Simpl Windows, you have a Toggle that reports back to this component on the state. 
+`resetAfterMs` means you don't have to explicitly publish a false signal, it does so automatically after 50ms. 
+
+It's a proper `useState` call, so when your Crestron Processor updates the digital value on join 1,
+it will send it down to the touchpanel. 
+
+Full example in the `examples/` directory coming soon.
+
+:::TIP
+Use `pubState` instead of `setState` when naming the function variable from `useJoin`. This helps
+you keep track of what is going to a Crestron Processor and what is local React state.
+:::
+
 
 # Parameters
 
-`useJoin` takes in an object because of the number of potential arguments, future exansion, and
-the ability to abstract into a large object, as in `examples/vite/joins.ts`.
-
-The object is of type:
+useJoin takes in a parameter of type `PUseJoin<any, any>`
 
 ```ts
 {
@@ -40,51 +50,42 @@ The object is of type:
    */
   type: "boolean" | "number" | "string";
   /**
-   * Join number/string over which the Crestron system is going to subscribe/publish.
+   * If you want to subscribe and publish over a single join, give:
+   * number | string
+   *  - A join number or, in the case of Contracts and Reserved Joins, a string.
+   *
+   * If using multiple joins that are not in order, give:
+   * (number | string)[]
+   * - E.g. [10, 12, "Room.PowerOn"] will be an array with length 3 of whatever type specified in `type`.
+   * - The returned array will coorespond with the order of the joins.
+   * - If you publish over this array, for example `pubRoomPower([false, false, true])`, it will also be in order.
+   *
+   * If using a series of join numbers and they are in order, give:
+   * {start: number; end: number}
+   * - E.g. `{start: 10, end: 17}` is completely equivalent to `[10, 11, 12, 13, 14, 15, 16, 17]`.
    */
-  join: number | string;
+  join: number | string | (number | string)[] | {start: number; end: number};
   /**
-   * Offset is used for join numbers such that you can have a default join number
-   * and then apply offsets. 
+   * Offset is a tool for composition. Its value is added to join numbers (not strings).
+   * If of type `number`, then the offset will apply to all joins equally.
    */
   offset?: number | { boolean?: number; number?: number; string?: number };
   /**
-   * Mock allows you to set an initialValue as if the Crestron system set it at startup,
-   * as well as making a function that should emulate the behavior of your Crestron program.
-   * In the future, this could be useful for a testing framework.
-   * Mocks are only used if `CrComLib.isCrestronTouchpanel()` and `CrComLib.isIosDevice()`
-   * are both false and the mock object is defined.
+   * If true, console.log a default message for every message sent/recieved.
+   * If a function, you will be able to implement your own logging function.
+   *  - The return goes into a console.log().
+   *  - You can return nothing if you want to handle logging yourself.
    */
-  mock?: {
-    /**
-     * Set the value of this variable to something on initialization. This will be redone
-     * every time the React component that calls `useJoin()` unrenders and rerenders.
-     */
-    initialValue?: boolean | number | string;
-    /**
-     * A function that takes a value of type `type`. If you return a value from this function,
-     * the state will update to that value.
-     */
-    fn?: (v: boolean | number | string) => boolean | number | string | void;
-  };
-  /**
-   * If `log` is true, then it will console.log() a default string such as 
-   * `key <key> join <join> sent value <value>`.
-   * If `log` is a function, then that function will be supplied with four values: 
-   * join, value, isMock, and key (if key is defined).
-   */
-  log?:
-    | boolean
-    | ((
-        join: string,
-        value: boolean | number | string,
-        isMock: boolean,
-        key?: string,
-      ) => string | void);
+  log?: boolean | LogFunction<T, K>;
   /**
    * Used for logging and your own documentation.
    */
   key?: string;
+  /**
+   * Unused param. Still useful for your own documentation.
+   * In the future, we could optimize the hook based on this param.
+   */
+  dir?: "input" | "output" | "bidirectional";
   /**
    * Effects is an object which affects how the publish function works.
    */
@@ -105,22 +106,75 @@ The object is of type:
 };
 ```
 
+
+### JoinMap
+
+Another benefit of having the params to `useJoin` be an object is that we can type them in a greater object.
+
+This is useful for having one central location in your project that has all of the join numbers necessary to talk 
+to Crestron. This example is from `examples/vite/src/utils/join.ts`.
+
+```ts
+import { JoinMap } from "use-join";
+// prettier-ignore
+export const J = {
+  Audio: {
+    Control: {
+      Volume: {
+        Up: { join: 5, type: "boolean", effects: {resetAfterMs: 100}},
+        Down: { join: 6, type: "boolean", effects: {resetAfterMs: 100}},
+        Level: { join: 1, type: "number", effects: { debounce: 10 }, }, 
+      },
+      Mute: { join: 7, type: "boolean", effects: { resetAfterMs: 100 }},
+    },
+    Management: {
+      InUse: { join: 2, type: "number" },
+    }, 
+  },
+  Camera: CameraControlJoins(100);
+} as const satisfies JoinMap;
+```
+
+This means that instead of having a bunch of join numbers across your application, you have a single source
+of truth. And, if you utilize the `offset` attribute, you can make functions that returns a JoinMap with an offset, like so:
+
+```ts
+import { JoinMap, PUseJoin } from "use-join";
+// prettier-ignore
+export function CameraControlJoins(offset: PUseJoin<any, any>["offset"]) {
+  return {
+    Power: {
+      On: { offset, join: 1, type: "boolean", dir: "input", effects: { resetAfterMs: 100 } },
+      Off: { offset, join: 2, type: "boolean", dir: "input", effects: { resetAfterMs: 100 } },
+      State: { offset, join: 3, type: "boolean", dir: "output" },
+    },
+    Dpad: {
+      Up: { offset, join: 4, type: "boolean" },
+      Down: { offset, join: 5, type: "boolean" },
+      Left: { offset, join: 6, type: "boolean" },
+      Right: { offset, join: 7, type: "boolean" },
+    },
+    Zoom: { In: { offset, join: 8, type: "boolean" }, Out: { offset, join: 9, type: "boolean" }, },
+    Focus: {
+      In: { offset, join: 10, type: "boolean" },
+      Out: { offset, join: 11, type: "boolean" },
+      Auto: { offset, join: 12, type: "boolean" },
+    },
+    Presets: {
+      Save: { offset, join: 1, type: "number" },
+      Load: { offset, join: 2, type: "number" },
+      SaveCommit: { offset, join: 13, type: "boolean", effects: { resetAfterMs: 100 } },
+      LoadCommit: { offset, join: 14, type: "boolean", effects: { resetAfterMs: 100 } },
+    },
+  } as const satisfies JoinMap;
+}
+```
+
 #### Note: Type Inference
-The type above is slightly edited for brevity. The real type uses inference to constrain
-all `boolean | number | string` types into whichever is put in `type:`. For example, if you made
-`useJoin({join: 1, type: "string"})`, then wanted to give a function for `mock.fn`, that function would 
-be inferred as type `(v: string) => string | void`.
+The type above is slightly edited for brevity. The real types are a bit more complicated than what
+is merrited on a readme. When you pass in `{type: "number"}`, that tells `useJoin` to subscribe and
+publish over analog join(s), and that the return will similarly be with numbers instead of strings or booleans.
 
-The same is the case for the returning `[state, pubState]`, where `state` would be of type `string`,
-and `pubState` would be of type `(v: string) => void;`. If you gave `pubState(true)` in this situation,
-Typescript would be very angry at you.
-
-# Example
-
-An example is in `examples/vite/main.tsx`. This is not meant to be a fully fleshed starting point. 
-For example, the hook and example has nothing to do with webXPanel support, PWA support, or contracts (other
+This hook has nothing to do with webXPanel support, PWA support, or contracts (other
 than the fact you can supply any string as the `join` value). For these things you may want to follow
 [jphillipsCrestron/ch5-react-ts-template](https://github.com/jphillipsCrestron/ch5-react-ts-template).
-
-
-

@@ -1,45 +1,47 @@
-import { mock, PUseJoin, TMock } from "use-join";
+import { JoinMap, PUseJoin } from "use-join";
 // prettier-ignore
 export const J = {
   Audio: {
     Control: {
       Volume: {
-        Up: { join: 5, type: "boolean", dir: "output", key: "volume-up", log: true, effects: {resetAfterMs: 100}},
-        Down: { join: 6, type: "boolean", dir: "output", key: "volume-down", log: true, effects: {resetAfterMs: 100}},
-        Level: { join: 1, type: "number", dir: "output", key: "volume-level", log: true, effects: { debounce: 10 }, } as PUseJoin<"number">,
+        Up: { join: 5, type: "boolean", effects: {resetAfterMs: 100}},
+        Down: { join: 6, type: "boolean", effects: {resetAfterMs: 100}},
+        Level: { join: 1, type: "number", effects: { debounce: 10 }, }, 
       },
-      Mute: { join: 7, type: "boolean", dir: "input", key: "volume-mute", log: true, effects: { resetAfterMs: 100 }},
+      Mute: { join: 7, type: "boolean", effects: { resetAfterMs: 100 }},
     },
     Management: {
-      InUse: { join: 2, type: "number", dir: "input", key: "volume-mgmt-in-use", log: true, },
+      InUse: { join: 2, type: "number" },
     }, 
-}} as const;
+  },
+  Camera: CameraControlJoins(100)
+} as const satisfies JoinMap;
 
-export const JMocks = [
-  mock({
-    trigger: {
-      join: "1",
-      type: "boolean",
-      condition: (v) => v === true,
+// prettier-ignore
+export function CameraControlJoins(offset: PUseJoin<any, any>["offset"]) {
+  return {
+    Power: {
+      On: { offset, join: 1, type: "boolean", dir: "input", effects: { resetAfterMs: 100 } },
+      Off: { offset, join: 2, type: "boolean", dir: "input", effects: { resetAfterMs: 100 } },
+      State: { offset, join: 3, type: "boolean", dir: "output" },
     },
-    effects: [{ join: "5", type: "number", compute: (t, v) => v + 5 }],
-  }),
-  mock({
-    trigger: {
-      join: "6",
-      type: "boolean",
-      condition: (v) => v === true,
+    Dpad: {
+      Up: { offset, join: 4, type: "boolean" },
+      Down: { offset, join: 5, type: "boolean" },
+      Left: { offset, join: 6, type: "boolean" },
+      Right: { offset, join: 7, type: "boolean" },
     },
-    effects: [{ join: "1", type: "number", compute: (t, v) => v - 5 }],
-  }),
-  mock({
-    trigger: {
-      join: "7",
-      type: "boolean",
-      condition: (v) => v === true,
+    Zoom: { In: { offset, join: 8, type: "boolean" }, Out: { offset, join: 9, type: "boolean" }, },
+    Focus: {
+      In: { offset, join: 10, type: "boolean" },
+      Out: { offset, join: 11, type: "boolean" },
+      Auto: { offset, join: 12, type: "boolean" },
     },
-    effects: [
-      { join: "1", type: "number", compute: (t, v, get) => (v === 0 ? 50 : 0) },
-    ],
-  }),
-];
+    Presets: {
+      Save: { offset, join: 1, type: "number" },
+      Load: { offset, join: 2, type: "number" },
+      SaveCommit: { offset, join: 13, type: "boolean", effects: { resetAfterMs: 100 } },
+      LoadCommit: { offset, join: 14, type: "boolean", effects: { resetAfterMs: 100 } },
+    },
+  } as const satisfies JoinMap;
+}

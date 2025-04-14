@@ -1,4 +1,4 @@
-import { JoinMap, PUseJoin, SignalMap } from "@/hook.js";
+import { JoinMap, MultiJoin, PUseJoin, SignalMap, SingleJoin } from "@/hook.js";
 
 export function JoinMapToString(J: JoinMap, indent = 0): string {
   const spaces = "  ".repeat(indent);
@@ -37,8 +37,64 @@ export function JoinMapToString(J: JoinMap, indent = 0): string {
   return result;
 }
 
+function JoinMapEntryToString<T extends keyof SignalMap>(
+  item: PUseJoin<T, SingleJoin | MultiJoin>,
+): Array<PUseJoin<T, string>> {
+  const baseOutput: Omit<PUseJoin<T, string>, "join"> = {
+    type: item.type,
+    ...(item.key && { key: item.key }),
+    ...(item.dir && { dir: item.dir }),
+    ...(item.effects && { effects: item.effects }),
+    ...(item.log !== undefined && { log: item.log }),
+  };
+
+  // Calculate type-specific offset
+  const offset =
+    typeof item.offset === "number"
+      ? item.offset
+      : (item.offset?.[item.type] ?? 0);
+
+  // Handle different join types
+  if (typeof item.join === "string") {
+    return [{ ...baseOutput, join: item.join }];
+  }
+
+  if (typeof item.join === "number") {
+    return [{ ...baseOutput, join: (item.join + offset).toString() }];
+  }
+
+  if (Array.isArray(item.join)) {
+    return item.join.map((j) => ({
+      ...baseOutput,
+      join: (typeof j === "number" ? j + offset : j).toString(),
+    }));
+  }
+
+  // Handle MultiJoinObject (range)
+  const { start, end } = item.join;
+  return Array.from({ length: end - start + 1 }, (_, i) => ({
+    ...baseOutput,
+    join: (start + i + offset).toString(),
+  }));
+}
+
+function isPUseJoin(
+  value: any,
+): value is PUseJoin<keyof SignalMap, SingleJoin | MultiJoin> {
+  return (
+    value &&
+    typeof value === "object" &&
+    "type" in value &&
+    "join" in value &&
+    typeof value.type === "string"
+  );
+}
+
 export function JoinMapToStringByType(J: JoinMap): string {
-  const groups: Record<keyof SignalMap, PUseJoin<keyof SignalMap, any>[]> = {
+  const groups: Record<
+    keyof SignalMap,
+    Array<Omit<PUseJoin<keyof SignalMap, string>, "type">>
+  > = {
     boolean: [],
     number: [],
     string: [],
@@ -50,20 +106,26 @@ export function JoinMapToStringByType(J: JoinMap): string {
 
       if (Array.isArray(value)) {
         value.forEach((item) => {
-          if ("type" in item) {
-            // @ts-expect-error
-            groups[item.type].push({
-              ...item,
-              key: currentPath.join("."),
+          if (isPUseJoin(item)) {
+            const entries = JoinMapEntryToString(item);
+            entries.forEach((entry) => {
+              const { type, ...withoutType } = entry;
+              groups[entry.type].push({
+                ...withoutType,
+                key: currentPath.join("."),
+              });
             });
           }
         });
       } else if (value && typeof value === "object") {
-        if ("type" in value) {
-          // @ts-expect-error
-          groups[value.type].push({
-            ...value,
-            key: currentPath.join("."),
+        if (isPUseJoin(value)) {
+          const entries = JoinMapEntryToString(value);
+          entries.forEach((entry) => {
+            const { type, ...withoutType } = entry;
+            groups[entry.type].push({
+              ...withoutType,
+              key: currentPath.join("."),
+            });
           });
         } else {
           collectEntries(value as JoinMap, currentPath);
@@ -89,3 +151,20 @@ export function JoinMapToStringByType(J: JoinMap): string {
   result += "}";
   return result;
 }
+const J = {
+  Join1: { type: "boolean", join: 1, key: "Asdf" },
+  Group1: {
+    Join2: { type: "number", join: 2, key: "Fdsa" },
+  },
+  Group2: {
+    Join3: { type: "string", join: 3, key: "Zxcv" },
+  },
+  Group3: [
+    { type: "string", join: 4, key: "Vcxz" },
+    { type: "number", join: 5, key: "Qwer1" },
+    { type: "number", join: 6, key: "Qwer2" },
+    { type: "number", join: 7, key: "Qwer3" },
+  ],
+} as const satisfies JoinMap;
+
+console.log(JoinMapToString(J));
