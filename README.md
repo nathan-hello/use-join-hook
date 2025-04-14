@@ -31,10 +31,8 @@ it will send it down to the touchpanel.
 
 Full example in the `examples/` directory coming soon.
 
-:::TIP
-Use `pubState` instead of `setState` when naming the function variable from `useJoin`. This helps
-you keep track of what is going to a Crestron Processor and what is local React state.
-:::
+[!TIP]
+Use `pubState` instead of `setState` when naming the function variable from `useJoin`. This helps you keep track of what is going to a Crestron Processor and what is local React state.
 
 
 # Parameters
