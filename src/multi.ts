@@ -47,23 +47,22 @@ export function useJoinMulti<T extends keyof SignalMap>(
   }, [options.join]);
 
   let pubState = (
-    values: SignalMap[T][],
-    single?: { index: number; value: SignalMap[T] },
+    v: SignalMap[T][] | { index: number; value: SignalMap[T] },
   ) => {
-    if (values.length !== joins.length && !single) {
+    if (!("index" in v) && v.length !== joins.length) {
       console.error("Published values length does not match join length");
     }
 
-    if (single) {
-      if (joins[single.index]) {
-        CrComLib.publishEvent(options.type, joins[single.index]!, single.value);
+    if ("index" in v) {
+      if (joins[v.index]) {
+        CrComLib.publishEvent(options.type, joins[v.index]!, v.value);
       } else {
-        console.error(`joins[${single.index}] does not exist. joins: ${joins}`);
+        console.error(`joins[${v.index}] does not exist. joins: ${joins}`);
       }
       return;
     }
 
-    values.forEach((value, index) => {
+    v.forEach((value, index) => {
       const joinStr = joins[index]!.toString();
       CrComLib.publishEvent(options.type, joinStr, value);
       triggerLog({ options, join: joinStr, value, index, direction: "sent" });

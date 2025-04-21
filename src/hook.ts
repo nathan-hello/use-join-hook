@@ -228,7 +228,7 @@ export type RUseJoin<T extends keyof SignalMap> = [
 
 export type RUseJoinMulti<T extends keyof SignalMap> = [
   SignalMap[T][],
-  (v: SignalMap[T][], single?: { index: number; value: SignalMap[T] }) => void,
+  (v: SignalMap[T][] | { index: number; value: SignalMap[T] }) => void,
 ];
 
 /**
@@ -265,9 +265,3 @@ export type JoinMap = {
     | ReadonlyArray<PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>>
     | { readonly [K: string]: JoinMap[string] };
 };
-
-const asdf = useJoin({
-  join: 1,
-  type: "boolean",
-  effects: { resetAfterMs: 50 },
-});

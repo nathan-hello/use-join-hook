@@ -1,8 +1,15 @@
-import { MultiJoin, PUseJoin, SignalMap, SingleJoin } from "@/hook.js";
+import {
+  MultiJoin,
+  PUseJoin,
+  RUseJoin,
+  RUseJoinMulti,
+  SignalMap,
+  SingleJoin,
+} from "@/hook.js";
 import { useRef } from "react";
 
-type SingleEffect<T extends keyof SignalMap> = (value: SignalMap[T]) => void;
-type ArrayEffect<T extends keyof SignalMap> = (value: SignalMap[T][]) => void;
+type SingleEffect<T extends keyof SignalMap> = RUseJoin<T>[1];
+type ArrayEffect<T extends keyof SignalMap> = RUseJoinMulti<T>[1];
 
 export function useDebounce<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin>,
@@ -35,16 +42,24 @@ export function useDebounceMulti<T extends keyof SignalMap>(
 
   if (!options?.effects?.debounce) return pubState;
 
-  return (values: SignalMap[T][]) => {
-    values.forEach((value, idx) => {
-      if (timeoutRefs.current[idx]) {
-        clearTimeout(timeoutRefs.current[idx]!);
+  return (v: SignalMap[T][] | { index: number; value: SignalMap[T] }) => {
+    if (Array.isArray(v)) {
+      v.forEach((value, idx) => {
+        if (timeoutRefs.current[idx]) {
+          clearTimeout(timeoutRefs.current[idx]!);
+        }
+        timeoutRefs.current[idx] = setTimeout(() => {
+          pubState([...v]);
+        }, options?.effects?.debounce);
+      });
+    } else {
+      if (timeoutRefs.current[v.index]) {
+        clearTimeout(timeoutRefs.current[v.index]!);
       }
-      timeoutRefs.current[idx] = setTimeout(() => {
-        const newValues = [...values];
-        pubState(newValues);
+      timeoutRefs.current[v.index] = setTimeout(() => {
+        pubState(v);
       }, options?.effects?.debounce);
-    });
+    }
   };
 }
 
@@ -58,7 +73,7 @@ export function pubWithTimeout<T extends keyof SignalMap>(
     pubState(v);
     setTimeout(
       () => pubState({ boolean: false, number: 0, string: "" }[options.type]),
-      options?.effects?.resetAfterMs,
+      options.effects?.resetAfterMs,
     );
   };
 }
@@ -69,13 +84,21 @@ export function pubWithTimeoutMulti<T extends keyof SignalMap>(
 ): ArrayEffect<T> {
   if (!options?.effects?.resetAfterMs) return pubState;
 
-  return (values: SignalMap[T][]) => {
-    pubState(values);
-    setTimeout(() => {
-      const resetValues = new Array(values.length).fill(
-        { boolean: false, number: 0, string: "" }[options.type],
-      );
-      pubState(resetValues);
-    }, options?.effects?.resetAfterMs);
+  return (v: SignalMap[T][] | { index: number; value: SignalMap[T] }) => {
+    if (Array.isArray(v)) {
+      pubState(v);
+      setTimeout(() => {
+        const resetValues = new Array(v.length).fill(
+          { boolean: false, number: 0, string: "" }[options.type],
+        );
+        pubState(resetValues);
+      }, options.effects?.resetAfterMs);
+    } else {
+      pubState(v);
+      setTimeout(() => {
+        const reset = { boolean: false, number: 0, string: "" }[options.type];
+        pubState({ index: v.index, value: reset });
+      }, options.effects?.resetAfterMs);
+    }
   };
 }
