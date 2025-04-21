@@ -1,4 +1,4 @@
-import { SignalMap } from "@/hook.js";
+import type { SignalMap } from "@/types.js";
 
 // Global store for mocks
 declare global {

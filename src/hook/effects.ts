@@ -1,11 +1,11 @@
-import {
+import type {
   MultiJoin,
   PUseJoin,
   RUseJoin,
   RUseJoinMulti,
   SignalMap,
   SingleJoin,
-} from "@/hook.js";
+} from "@/types.js";
 import { useRef } from "react";
 
 type SingleEffect<T extends keyof SignalMap> = RUseJoin<T>[1];

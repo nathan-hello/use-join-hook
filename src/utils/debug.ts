@@ -1,4 +1,4 @@
-import type { PUseJoin, SignalMap } from "@/hook.js";
+import type { PUseJoin, SignalMap } from "@/types.js";
 
 // Internal registry to track active joins and their state
 type JoinKey = string; // e.g. "string:2"

@@ -2,15 +2,21 @@
 // To use useJoinArray, pass in an array or {start: number; end: number} to options.join
 
 import { useState, useEffect } from "react";
-import { CrComLibInterface, MockCrComLib } from "@/mock.js";
+import { CrComLibInterface, MockCrComLib } from "@/mock/mock.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import { MultiJoin, PUseJoin, RUseJoinMulti, SignalMap } from "@/hook.js";
+import {
+  MultiJoin,
+  PUseJoin,
+  RUseJoinMulti,
+  SignalMap,
+  LogOptions,
+} from "@/types.js";
 import { useMocks } from "@/context.js";
-import { pubWithTimeoutMulti, useDebounceMulti } from "@/effects.js";
-import { LogOptions } from "./hook.js";
+import { pubWithTimeoutMulti, useDebounceMulti } from "@/hook/effects.js";
+import { leftPad, rightPad } from "@/utils/util.js";
 
 // This file is exported for internal use only.
-// To use useJoinArray, pass in an array to options.join in useJoin
+// To use useJoinArray, pass in a MultiJoin to options.join in useJoin
 export function useJoinMulti<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
 ): RUseJoinMulti<T> {
@@ -95,9 +101,13 @@ function triggerLog<T extends keyof SignalMap>(
     return;
   }
 
-  console.log(
-    `${options.type} ${options.key ? `key ${options.key}[${index}] ` : ""}join ${join} ${direction} value: ${value}`,
-  );
+  const t = rightPad(options.type, "boolean".length, " ");
+  const j = leftPad(join, 3, "0");
+  const d = leftPad(direction, "received".length, " ");
+  const v = rightPad(value.toString(), "false".length, " ");
+  const k = options.key ? `${options.key}[${index}]` : "";
+
+  console.log(`${t}:${j} ${d} value: ${v} ${k}`);
 }
 
 function getJoin<T extends keyof SignalMap>(

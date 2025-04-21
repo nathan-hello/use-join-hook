@@ -4,7 +4,7 @@ import type {
   PUseJoin,
   SignalMap,
   SingleJoin,
-} from "@/hook.js";
+} from "@/types.js";
 
 export function JoinMapToString(J: JoinMap, indent = 0): string {
   const spaces = "  ".repeat(indent);

@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
-import { type TMock } from "@/mock.js";
-import { SignalMap } from "@/hook.js";
+import { type TMock } from "@/mock/mock.js";
+import type { SignalMap } from "@/types.js";
 
 export const MocksContext = createContext<TMock<keyof SignalMap, keyof SignalMap>[]>([]);
 
