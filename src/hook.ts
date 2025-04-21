@@ -4,6 +4,8 @@ import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import { useJoinMulti } from "@/multi.js";
 import { useMocks } from "@/context.js";
 import { useDebounce, pubWithTimeout } from "@/effects.js";
+import { registerJoin, unregisterJoin } from "@/debug.js";
+import { leftPad, rightPad } from "@/util.js";
 
 function joinIsArray<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin> | PUseJoin<T, MultiJoin>,
@@ -43,6 +45,7 @@ export function useJoin<T extends keyof SignalMap>(
         (new MockCrComLib(useMocks()) as CrComLibInterface);
 
   useEffect(() => {
+    registerJoin(options.type, join, options, () => state);
     const id = CrComLib.subscribeState(
       options.type,
       join,
@@ -52,6 +55,7 @@ export function useJoin<T extends keyof SignalMap>(
       },
     );
     return () => {
+      unregisterJoin(options.type, join);
       CrComLib.unsubscribeState(options.type, join, id);
     };
   }, []);
@@ -90,9 +94,12 @@ function triggerLog<T extends keyof SignalMap>(
     return;
   }
 
-  console.log(
-    `${options.type} ${options.key ? `key ${options.key}` : ""}join ${join} ${direction} value: ${value}`,
-  );
+  const t = rightPad(options.type, "boolean".length, " ");
+  const j = leftPad(join, 3, "0");
+  const d = leftPad(direction, "received".length, " ");
+  const v = rightPad(value.toString(), "false".length, " ");
+
+  console.log(`${t}:${j} ${d} value: ${v} ${options.key}`);
 }
 
 function getJoin<T extends keyof SignalMap>(

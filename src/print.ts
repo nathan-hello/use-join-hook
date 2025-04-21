@@ -1,4 +1,10 @@
-import { JoinMap, MultiJoin, PUseJoin, SignalMap, SingleJoin } from "@/hook.js";
+import type {
+  JoinMap,
+  MultiJoin,
+  PUseJoin,
+  SignalMap,
+  SingleJoin,
+} from "@/hook.js";
 
 export function JoinMapToString(J: JoinMap, indent = 0): string {
   const spaces = "  ".repeat(indent);
@@ -166,5 +172,3 @@ const J = {
     { type: "number", join: 7, key: "Qwer3" },
   ],
 } as const satisfies JoinMap;
-
-console.log(JoinMapToString(J));

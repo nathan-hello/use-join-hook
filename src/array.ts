@@ -7,6 +7,7 @@ import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import { PUseJoin, SignalMap } from "@/hook.js";
 import { useMocks } from "@/context.js";
 import type { LogOptions } from "./hook.js";
+import { leftPad, rightPad } from "@/util.js";
 
 export type isMultiJoin<T> = T extends MultiJoinObject
   ? true
@@ -80,7 +81,13 @@ function triggerLog<T extends keyof SignalMap>(
     if (ret === undefined) return;
     str = ret;
   } else if (options.log === true) {
-    str = `${options.key ? `key ${options.key}[${index}] ` : ""}join ${join} ${direction} value: ${value}`;
+    const t = rightPad(options.type, "boolean".length, " ");
+    const j = leftPad(join, 3, "0");
+    const d = leftPad(direction, "received".length, " ");
+    const v = rightPad(value.toString(), "false".length, " ");
+    const k = options.key ? `${options.key}[${index}]` : "";
+
+    str = `${t}:${j} ${d} value: ${v} ${k}`;
   }
 
   console.log(str);
