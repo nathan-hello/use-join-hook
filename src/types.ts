@@ -8,6 +8,15 @@ export type SingleJoin = number | string;
 
 export type SignalMap = { boolean: boolean; number: number; string: string };
 
+export type Publisher<
+  T extends keyof SignalMap,
+  K extends SingleJoin | MultiJoin,
+> = K extends SingleJoin
+  ? React.Dispatch<React.SetStateAction<SignalMap[T]>>
+  : K extends MultiJoin
+    ? React.Dispatch<React.SetStateAction<SignalMap[T][]>>
+    : never;
+
 export type PUseJoin<
   T extends keyof SignalMap,
   K extends SingleJoin | MultiJoin,
@@ -104,12 +113,12 @@ export type LogFunctionWithoutGenerics = (
 
 export type RUseJoin<T extends keyof SignalMap> = [
   SignalMap[T],
-  (v: SignalMap[T]) => void,
+  Publisher<T, SingleJoin>,
 ];
 
 export type RUseJoinMulti<T extends keyof SignalMap> = [
   SignalMap[T][],
-  (v: SignalMap[T][] | { index: number; value: SignalMap[T] }) => void,
+  Publisher<T, MultiJoin>,
 ];
 
 /**

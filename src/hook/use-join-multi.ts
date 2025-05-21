@@ -12,8 +12,13 @@ import {
   LogOptions,
 } from "@/types.js";
 import { useMocks } from "@/context.js";
-import { pubWithTimeoutMulti, useDebounceMulti } from "@/hook/effects.js";
 import { leftPad, rightPad } from "@/utils/util.js";
+import {
+  pubWithTimeout,
+  pubWithTimeoutMulti,
+  useDebounce,
+  useDebounceMulti,
+} from "@/hook/effects.js";
 
 // This file is exported for internal use only.
 // To use useJoinArray, pass in a MultiJoin to options.join in useJoin
@@ -52,23 +57,10 @@ export function useJoinMulti<T extends keyof SignalMap>(
     };
   }, [options.join]);
 
-  let pubState = (
-    v: SignalMap[T][] | { index: number; value: SignalMap[T] },
-  ) => {
-    if (!("index" in v) && v.length !== joins.length) {
-      console.error("Published values length does not match join length");
-    }
+  let pubState: React.Dispatch<React.SetStateAction<SignalMap[T][]>> = (v) => {
+    const nextValue = typeof v === "function" ? v(state) : v;
 
-    if ("index" in v) {
-      if (joins[v.index]) {
-        CrComLib.publishEvent(options.type, joins[v.index]!, v.value);
-      } else {
-        console.error(`joins[${v.index}] does not exist. joins: ${joins}`);
-      }
-      return;
-    }
-
-    v.forEach((value, index) => {
+    nextValue.forEach((value, index) => {
       const joinStr = joins[index]!.toString();
       CrComLib.publishEvent(options.type, joinStr, value);
       triggerLog({ options, join: joinStr, value, index, direction: "sent" });

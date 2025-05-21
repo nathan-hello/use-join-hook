@@ -69,9 +69,11 @@ export function useJoin<T extends keyof SignalMap>(
     };
   }, []);
 
-  let pubState = (v: SignalMap[T]) => {
-    CrComLib.publishEvent(options.type, join, v);
-    triggerLog({ options, join, value: v, direction: "sent" });
+  let pubState: React.Dispatch<React.SetStateAction<SignalMap[T]>> = (v) => {
+    const nextValue = typeof v === "function" ? v(state) : v;
+
+    CrComLib.publishEvent(options.type, join, nextValue);
+    triggerLog({ options, join, value: nextValue, direction: "sent" });
   };
 
   if (options?.effects?.resetAfterMs) {
