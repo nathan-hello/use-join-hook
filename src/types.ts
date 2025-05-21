@@ -75,18 +75,25 @@ export type PUseJoin<
     resetAfterMs?: number;
   };
   mock?: {
-    transform: MockTransformer<T>;
+    initialValue?: K extends SingleJoin
+      ? SignalMap[T]
+      : K extends MultiJoin
+        ? SignalMap[T][]
+        : never;
+    transform: MockTransformer<T, K>;
     triggers?: MockTriggers<T>;
   };
 };
 
+// Apparently the generics in State and Publisher aren't enough so we have to
+// contrain the type manually, even though the "output" is syntactically the same.
 export type RUseJoin<
   T extends keyof SignalMap,
   K extends SingleJoin | MultiJoin,
 > = K extends SingleJoin
-  ? [SignalMap[T], Publisher<T, SingleJoin>]
+  ? [SignalMap[T], Publisher<T, K>]
   : K extends MultiJoin
-    ? [SignalMap[T][], Publisher<T, MultiJoin>]
+    ? [SignalMap[T][], Publisher<T, K>]
     : never;
 
 /**
@@ -156,7 +163,10 @@ export type JoinMap = {
     | { readonly [K: string]: JoinMap[string] };
 };
 
-export type MockTransformer<T extends keyof SignalMap> = (
+export type MockTransformer<
+  T extends keyof SignalMap,
+  K extends SingleJoin | MultiJoin,
+> = (
   value: SignalMap[T],
   getState: <T extends keyof SignalMap>(
     type: T,

@@ -33,7 +33,7 @@ interface StoreState {
   };
   transformers: {
     [T in keyof SignalMap]?: {
-      [join: string]: MockTransformer<T>;
+      [join: string]: MockTransformer<T, any>;
     };
   };
   triggers: {
@@ -140,7 +140,7 @@ export class _MockCrComLib implements CrComLibInterface {
   public registerTransformer<T extends keyof SignalMap>(
     type: T,
     join: string,
-    transformer: MockTransformer<T>,
+    transformer: MockTransformer<T, any>,
   ): void {
     if (!this.store.transformers[type]) {
       this.store.transformers[type] = {};
@@ -157,7 +157,7 @@ export class _MockCrComLib implements CrComLibInterface {
     if (!this.store.triggers[type]) {
       this.store.triggers[type] = {};
     }
-    if (!this.store.triggers[type][join]) {
+    if (!this.store.triggers[type]![join]) {
       this.store.triggers[type][join] = [];
     }
     this.store.triggers[type][join]?.push({ condition, action });
