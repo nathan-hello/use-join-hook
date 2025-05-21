@@ -2,44 +2,55 @@
 // To use useJoinArray, pass in an array or {start: number; end: number} to options.join
 
 import { useState, useEffect } from "react";
-import { CrComLibInterface, MockCrComLib } from "@/mock/mock.js";
+import {
+  _MockCrComLib,
+  CrComLibInterface,
+  MockCrComLib,
+} from "@/mock/store.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import {
-  MultiJoin,
-  PUseJoin,
-  RUseJoinMulti,
-  SignalMap,
-  LogOptions,
-} from "@/types.js";
-import { useMocks } from "@/context.js";
-import { leftPad, rightPad } from "@/utils/util.js";
-import {
-  pubWithTimeout,
-  pubWithTimeoutMulti,
-  useDebounce,
-  useDebounceMulti,
-} from "@/hook/effects.js";
+import { MultiJoin, PUseJoin, SignalMap, RUseJoin } from "@/types.js";
+import { pubWithTimeoutMulti, useDebounceMulti } from "@/hook/effects.js";
+import { logger } from "@/utils/log.js";
 
 // This file is exported for internal use only.
 // To use useJoinArray, pass in a MultiJoin to options.join in useJoin
 export function useJoinMulti<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
-): RUseJoinMulti<T> {
+): RUseJoin<T, MultiJoin> {
   const [joins, initialState] = getJoin(options);
   const [state, setState] = useState<SignalMap[T][]>(initialState);
 
   const CrComLib =
     RealCrComLib.isCrestronTouchscreen() || RealCrComLib.isIosDevice()
       ? (RealCrComLib as CrComLibInterface)
-      : (new MockCrComLib(useMocks()) as CrComLibInterface);
+      : MockCrComLib;
 
   useEffect(() => {
     const ids = joins.map((join, index) => {
+      if (CrComLib instanceof _MockCrComLib) {
+        if (options.mock?.triggers) {
+          options.mock.triggers.forEach((t) =>
+            CrComLib.registerTrigger(
+              options.type,
+              options.join.toString(),
+              t.condition,
+              t.action,
+            ),
+          );
+        }
+        if (options.mock?.transform) {
+          CrComLib.registerTransformer(
+            options.type,
+            options.join.toString(),
+            options.mock.transform,
+          );
+        }
+      }
       const id = CrComLib.subscribeState(
         options.type,
         join.toString(),
         function cb(value) {
-          triggerLog({ options, join, value, index, direction: "recieved" });
+          logger({ options, join, value, index, direction: "recieved" });
           setState((prev) => {
             const old = [...prev];
             old[index] = value;
@@ -61,9 +72,20 @@ export function useJoinMulti<T extends keyof SignalMap>(
     const nextValue = typeof v === "function" ? v(state) : v;
 
     nextValue.forEach((value, index) => {
-      const joinStr = joins[index]!.toString();
+      const joinStr = joins[index]?.toString();
+      if (!joinStr) {
+        console.error(`
+useJoin pubState error: 
+given array was of a different length than originally set.
+length of value given: ${nextValue.length}
+length of original join array: ${joins.length}
+given value: ${JSON.stringify(nextValue)}
+joins array: ${JSON.stringify(joins)}
+`);
+        return;
+      }
       CrComLib.publishEvent(options.type, joinStr, value);
-      triggerLog({ options, join: joinStr, value, index, direction: "sent" });
+      logger({ options, join: joinStr, value, index, direction: "sent" });
     });
   };
 
@@ -76,30 +98,6 @@ export function useJoinMulti<T extends keyof SignalMap>(
   pubState = useDebounceMulti(options, realPublish);
 
   return [state, pubState];
-}
-
-function triggerLog<T extends keyof SignalMap>(
-  params: LogOptions<T, MultiJoin>,
-) {
-  const { direction, index, join, options, value } = params;
-  if (options.log === false) return;
-
-  if (typeof options.log === "function") {
-    const ret = options.log(params);
-    if (ret === undefined) {
-      return;
-    }
-    console.log(ret);
-    return;
-  }
-
-  const t = rightPad(options.type, "boolean".length, " ");
-  const j = leftPad(join, 3, "0");
-  const d = leftPad(direction, "received".length, " ");
-  const v = rightPad(value.toString(), "false".length, " ");
-  const k = options.key ? `${options.key}[${index}]` : "";
-
-  console.log(`${t}:${j} ${d} value: ${v} ${k}`);
 }
 
 function getJoin<T extends keyof SignalMap>(

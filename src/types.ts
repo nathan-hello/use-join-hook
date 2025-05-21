@@ -1,22 +1,3 @@
-export type MultiJoin = (number | string)[] | MultiJoinObject;
-/**
- * An object specifiying the start and end join numbers.
- * `{start: 10, end: 15}` will evaluate to [10, 11, 12, 13, 14, 15]
- */
-export type MultiJoinObject = { start: number; end: number };
-export type SingleJoin = number | string;
-
-export type SignalMap = { boolean: boolean; number: number; string: string };
-
-export type Publisher<
-  T extends keyof SignalMap,
-  K extends SingleJoin | MultiJoin,
-> = K extends SingleJoin
-  ? React.Dispatch<React.SetStateAction<SignalMap[T]>>
-  : K extends MultiJoin
-    ? React.Dispatch<React.SetStateAction<SignalMap[T][]>>
-    : never;
-
 export type PUseJoin<
   T extends keyof SignalMap,
   K extends SingleJoin | MultiJoin,
@@ -37,20 +18,29 @@ export type PUseJoin<
    * ```ts
    * (number | string)[]
    * ```
-   * - E.g. [10, 12, "Room.PowerOn"] will be an array with length 3 of whatever type specified in `type`.
+   * - E.g. `[10, 12, "Room.PowerOn"]` will be an array with length 3 of whatever type specified in `type`.
    * - The returned array will coorespond with the order of the joins.
-   * - If you publish over this array, for example `pubRoomPower([false, false, true])`, it will also be in order.
+   * - If you publish over this array, for example `pubRoomPower([false, true, true])`, it will also be in order.
    *
    * If using a series of join numbers and they are in order, give:
    * ```ts
    * {start: number; end: number}
    * ```
    * - E.g. `{start: 10, end: 17}` is completely equivalent to `[10, 11, 12, 13, 14, 15, 16, 17]`.
+   *
+   * @warning
+   * Changing join between a SingleJoin and a MultiJoin between renders will cause React to throw an error.
+   * Just don't update these params between renders. Why would you do that?
    */
   join: K;
   /**
    * Offset is a tool for composition. Its value is added to join numbers (not strings).
-   * If of type `number`, then the offset will apply to all joins equally.
+   * If of type `number`, then the offset will apply to all join types equally.
+   *
+   * `{type: "string", join: 5, offset: 50}`, the real join number subscribed to will be `55`.
+   * `{type: "boolean", join: {start: 10, end: 15}, offset: {boolean: 12}}` will result in the
+   * array being `[22, 23, 24, 25, 26, 27]`
+   *
    */
   offset?: number | { boolean?: number; number?: number; string?: number };
   /**
@@ -59,7 +49,6 @@ export type PUseJoin<
   key?: string;
   /**
    * Unused param. Still useful for your own documentation.
-   * In the future, we could optimize the hook based on this param.
    */
   dir?: "input" | "output" | "bidirectional";
   /**
@@ -85,41 +74,52 @@ export type PUseJoin<
      */
     resetAfterMs?: number;
   };
+  mock?: {
+    transform: MockTransformer<T>;
+    triggers?: MockTriggers<T>;
+  };
 };
 
-export type LogOptions<
+export type RUseJoin<
   T extends keyof SignalMap,
   K extends SingleJoin | MultiJoin,
-> = {
-  options: PUseJoin<T, K>;
-  join: string;
-  direction: "sent" | "recieved";
-  value: SignalMap[T];
-} & (K extends MultiJoin ? { index: number } : {});
+> = K extends SingleJoin
+  ? [SignalMap[T], Publisher<T, SingleJoin>]
+  : K extends MultiJoin
+    ? [SignalMap[T][], Publisher<T, MultiJoin>]
+    : never;
+
+/**
+ * (number | string)[] will subscribe to those joins in order.
+ *
+ * Pass `{start: number; end: number}` to subscribe to that range of joins, inclusively.
+ * `{start: 10, end: 15}` will evaluate to [10, 11, 12, 13, 14, 15]
+ */
+export type MultiJoin = (number | string)[] | { start: number; end: number };
+export type SingleJoin = number | string;
+
+export type SignalMap = { boolean: boolean; number: number; string: string };
+
+export type Publisher<
+  T extends keyof SignalMap,
+  K extends SingleJoin | MultiJoin,
+> = K extends SingleJoin
+  ? React.Dispatch<React.SetStateAction<SignalMap[T]>>
+  : K extends MultiJoin
+    ? React.Dispatch<React.SetStateAction<SignalMap[T][]>>
+    : never;
 
 export type LogFunction<
-  T extends keyof SignalMap,
-  K extends SingleJoin | MultiJoin,
-> = (args: LogOptions<T, K>) => string | void;
-
-export type LogOptionsWithoutGenerics = LogOptions<
-  keyof SignalMap,
-  SingleJoin | MultiJoin
->;
-
-export type LogFunctionWithoutGenerics = (
-  args: LogOptionsWithoutGenerics,
+  T extends keyof SignalMap = any,
+  K extends SingleJoin | MultiJoin = any,
+> = (
+  args: {
+    options: PUseJoin<T, K>;
+    join: string;
+    direction: "sent" | "recieved";
+    value: SignalMap[T];
+  } & (K extends MultiJoin ? { index: number } : {}),
 ) => string | void;
-
-export type RUseJoin<T extends keyof SignalMap> = [
-  SignalMap[T],
-  Publisher<T, SingleJoin>,
-];
-
-export type RUseJoinMulti<T extends keyof SignalMap> = [
-  SignalMap[T][],
-  Publisher<T, MultiJoin>,
-];
 
 /**
  * A type helper to make it easier to store all of your joins in one object.
@@ -155,3 +155,16 @@ export type JoinMap = {
     | ReadonlyArray<PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>>
     | { readonly [K: string]: JoinMap[string] };
 };
+
+export type MockTransformer<T extends keyof SignalMap> = (
+  value: SignalMap[T],
+  getState: <T extends keyof SignalMap>(
+    type: T,
+    join: string,
+  ) => SignalMap[T] | undefined,
+) => SignalMap[T];
+
+export type MockTriggers<T extends keyof SignalMap> = Array<{
+  condition: (value: SignalMap[T]) => boolean;
+  action: () => void;
+}>;
