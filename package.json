@@ -1,6 +1,6 @@
 {
   "name": "use-join",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "A React hook for interacting with Crestron processors.",
   "type": "module",
   "main": "dist/use-join.umd.cjs",
