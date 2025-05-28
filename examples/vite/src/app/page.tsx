@@ -1,4 +1,4 @@
-import { VolumeControl } from "@/components/volume-control"
+import { VolumeControl } from "@/components/VolumeSlider";
 
 export default function Home() {
   return (
@@ -6,6 +6,6 @@ export default function Home() {
       <h1 className="mb-8 text-3xl font-bold">Volume Control</h1>
       <VolumeControl />
     </main>
-  )
+  );
 }
 
