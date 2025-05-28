@@ -7,7 +7,10 @@ import type {
 } from "@/types.js";
 import { useRef } from "react";
 
-export function useDebounce<T extends keyof SignalMap>(
+// The SingleJoin and MultiJoin effects are largely the same.
+// But the typescript shenanigans to allow for both to exist as one function is a little insane.
+
+export function useDebounceSingle<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin>,
   pubState: Publisher<T, SingleJoin>,
 ): typeof pubState {
@@ -39,7 +42,7 @@ export function useDebounceMulti<T extends keyof SignalMap>(
   };
 }
 
-export function pubWithTimeout<T extends keyof SignalMap>(
+export function pubWithTimeoutSingle<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin>,
   pubState: Publisher<T, SingleJoin>,
 ): Publisher<T, SingleJoin> {

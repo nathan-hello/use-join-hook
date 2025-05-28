@@ -6,7 +6,7 @@ import {
 } from "@/mock/store.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import { useJoinMulti } from "@/hook/use-join-multi.js";
-import { useDebounce, pubWithTimeout } from "@/hook/effects.js";
+import { useDebounceSingle, pubWithTimeoutSingle } from "@/hook/effects.js";
 import { registerJoin, unregisterJoin } from "@/utils/debug.js";
 import type {
   SignalMap,
@@ -95,11 +95,11 @@ export function useJoin<T extends keyof SignalMap>(
 
   if (options?.effects?.resetAfterMs) {
     const realPublish = pubState;
-    pubState = pubWithTimeout(options, realPublish);
+    pubState = pubWithTimeoutSingle(options, realPublish);
   }
 
   const realPublish = pubState;
-  pubState = useDebounce(options, realPublish);
+  pubState = useDebounceSingle(options, realPublish);
 
   return [state, pubState];
 }
