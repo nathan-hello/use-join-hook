@@ -75,13 +75,8 @@ export type PUseJoin<
     resetAfterMs?: number;
   };
   mock?: {
-    initialValue?: K extends SingleJoin
-      ? SignalMap[T]
-      : K extends MultiJoin
-        ? SignalMap[T][]
-        : never;
-    transform: MockTransformer<T, K>;
-    triggers?: MockTriggers<T>;
+    initialValue?: State<T, K>;
+    logicWave?: MockLogicWave<T>;
   };
 };
 
@@ -106,6 +101,15 @@ export type MultiJoin = (number | string)[] | { start: number; end: number };
 export type SingleJoin = number | string;
 
 export type SignalMap = { boolean: boolean; number: number; string: string };
+
+export type State<
+  T extends keyof SignalMap,
+  K extends SingleJoin | MultiJoin,
+> = K extends SingleJoin
+  ? SignalMap[T]
+  : K extends MultiJoin
+    ? SignalMap[T][]
+    : never;
 
 export type Publisher<
   T extends keyof SignalMap,
@@ -163,18 +167,15 @@ export type JoinMap = {
     | { readonly [K: string]: JoinMap[string] };
 };
 
-export type MockTransformer<
-  T extends keyof SignalMap,
-  K extends SingleJoin | MultiJoin,
-> = (
+export type MockLogicWave<T extends keyof SignalMap> = (
   value: SignalMap[T],
-  getState: <T extends keyof SignalMap>(
-    type: T,
-    join: string,
-  ) => SignalMap[T] | undefined,
+  getJoin: <G extends keyof SignalMap>(
+    type: G,
+    join: number | string,
+  ) => SignalMap[G] | undefined,
+  pubJoin: <G extends keyof SignalMap>(
+    type: G,
+    join: string | number,
+    value: SignalMap[G],
+  ) => void,
 ) => SignalMap[T];
-
-export type MockTriggers<T extends keyof SignalMap> = Array<{
-  condition: (value: SignalMap[T]) => boolean;
-  action: () => void;
-}>;

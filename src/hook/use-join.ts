@@ -52,21 +52,11 @@ export function useJoin<T extends keyof SignalMap>(
 
   useEffect(() => {
     if (CrComLib instanceof _MockCrComLib) {
-      if (options.mock?.triggers) {
-        options.mock.triggers.forEach((t) =>
-          CrComLib.registerTrigger(
-            options.type,
-            options.join.toString(),
-            t.condition,
-            t.action,
-          ),
-        );
-      }
-      if (options.mock?.transform) {
-        CrComLib.registerTransformer(
+      if (options.mock?.logicWave) {
+        CrComLib.registerMock(
           options.type,
           options.join.toString(),
-          options.mock.transform,
+          options.mock.logicWave,
         );
       }
     }
@@ -80,6 +70,15 @@ export function useJoin<T extends keyof SignalMap>(
         setState(value);
       },
     );
+
+    if (
+      CrComLib instanceof _MockCrComLib &&
+      options?.mock?.initialValue &&
+      state !== { boolean: false, number: 0, string: "" }[options.type]
+    ) {
+      CrComLib.publishEvent(options.type, join, options.mock.initialValue);
+    }
+
     return () => {
       unregisterJoin(options.type, join);
       CrComLib.unsubscribeState(options.type, join, id);

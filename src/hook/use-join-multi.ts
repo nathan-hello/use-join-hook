@@ -28,21 +28,11 @@ export function useJoinMulti<T extends keyof SignalMap>(
   useEffect(() => {
     const ids = joins.map((join, index) => {
       if (CrComLib instanceof _MockCrComLib) {
-        if (options.mock?.triggers) {
-          options.mock.triggers.forEach((t) =>
-            CrComLib.registerTrigger(
-              options.type,
-              options.join.toString(),
-              t.condition,
-              t.action,
-            ),
-          );
-        }
-        if (options.mock?.transform) {
-          CrComLib.registerTransformer(
+        if (options.mock?.logicWave) {
+          CrComLib.registerMock(
             options.type,
             options.join.toString(),
-            options.mock.transform,
+            options.mock.logicWave,
           );
         }
       }
@@ -58,6 +48,19 @@ export function useJoinMulti<T extends keyof SignalMap>(
           });
         },
       );
+
+      if (
+        CrComLib instanceof _MockCrComLib &&
+        options?.mock?.initialValue?.[index] &&
+        state[index] !== { boolean: false, number: 0, string: "" }[options.type]
+      ) {
+        CrComLib.publishEvent(
+          options.type,
+          join,
+          options.mock.initialValue[index],
+        );
+      }
+
       return { id, join: join.toString(), idx: index };
     });
 

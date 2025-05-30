@@ -1,4 +1,4 @@
-import { SignalMap, MockTransformer, MockTriggers } from "@/types.js";
+import { SignalMap, MockLogicWave } from "@/types.js";
 
 export type CrComLibInterface = {
   subscribeState<T extends keyof SignalMap>(
@@ -31,14 +31,9 @@ interface StoreState {
       };
     };
   };
-  transformers: {
+  logicWaves: {
     [T in keyof SignalMap]?: {
-      [join: string]: MockTransformer<T, any>;
-    };
-  };
-  triggers: {
-    [T in keyof SignalMap]?: {
-      [join: string]: MockTriggers<T>;
+      [join: string]: MockLogicWave<T>;
     };
   };
 }
@@ -47,8 +42,7 @@ export class _MockCrComLib implements CrComLibInterface {
   private store: StoreState = {
     values: {},
     subscribers: {},
-    transformers: {},
-    triggers: {},
+    logicWaves: {},
   };
 
   private generateId(): string {
@@ -57,9 +51,9 @@ export class _MockCrComLib implements CrComLibInterface {
 
   public getState<T extends keyof SignalMap>(
     type: T,
-    join: string,
+    join: number | string,
   ): SignalMap[T] | undefined {
-    return this.store.values[type]?.[join];
+    return this.store.values[type]?.[join.toString()];
   }
 
   public subscribeState<T extends keyof SignalMap>(
@@ -103,64 +97,42 @@ export class _MockCrComLib implements CrComLibInterface {
 
   public publishEvent<T extends keyof SignalMap>(
     type: T,
-    join: string,
+    join: string | number,
     value: SignalMap[T],
   ): void {
     // Apply transformer if exists
+    const joinStr = join.toString();
     let finalValue = value;
-    const transformer = this.store.transformers[type]?.[join];
+    const transformer = this.store.logicWaves[type]?.[joinStr];
     if (transformer) {
-      finalValue = transformer(value, this.getState);
+      finalValue = transformer(value, this.getState, this.publishEvent);
     }
 
     // Update store
     if (!this.store.values[type]) {
       this.store.values[type] = {};
     }
-    this.store.values[type][join] = finalValue;
+    this.store.values[type][joinStr] = finalValue;
 
     // Notify subscribers
-    if (this.store.subscribers[type]?.[join]) {
-      Object.values(this.store.subscribers[type]![join]).forEach((callback) => {
-        callback(finalValue);
-      });
-    }
-
-    // Check triggers
-    const triggers = this.store.triggers[type]?.[join];
-    if (triggers) {
-      triggers.forEach((trigger) => {
-        if (trigger.condition(finalValue)) {
-          trigger.action();
-        }
-      });
+    if (this.store.subscribers[type]?.[joinStr]) {
+      Object.values(this.store.subscribers[type][joinStr]).forEach(
+        (callback) => {
+          callback(finalValue);
+        },
+      );
     }
   }
 
-  public registerTransformer<T extends keyof SignalMap>(
+  public registerMock<T extends keyof SignalMap>(
     type: T,
     join: string,
-    transformer: MockTransformer<T, any>,
+    logicWave: MockLogicWave<T>,
   ): void {
-    if (!this.store.transformers[type]) {
-      this.store.transformers[type] = {};
+    if (!this.store.logicWaves[type]) {
+      this.store.logicWaves[type] = {};
     }
-    this.store.transformers[type][join] = transformer;
-  }
-
-  public registerTrigger<T extends keyof SignalMap>(
-    type: T,
-    join: string,
-    condition: (value: SignalMap[T]) => boolean,
-    action: () => void,
-  ): void {
-    if (!this.store.triggers[type]) {
-      this.store.triggers[type] = {};
-    }
-    if (!this.store.triggers[type]![join]) {
-      this.store.triggers[type][join] = [];
-    }
-    this.store.triggers[type][join]?.push({ condition, action });
+    this.store.logicWaves[type][join] = logicWave;
   }
 }
 
