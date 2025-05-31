@@ -1,3 +1,5 @@
+import { _MockCrComLib } from "@/mock/store.js";
+
 export type PUseJoin<
   T extends keyof SignalMap,
   K extends SingleJoin | MultiJoin,
@@ -27,10 +29,6 @@ export type PUseJoin<
    * {start: number; end: number}
    * ```
    * - E.g. `{start: 10, end: 17}` is completely equivalent to `[10, 11, 12, 13, 14, 15, 16, 17]`.
-   *
-   * @warning
-   * Changing join between a SingleJoin and a MultiJoin between renders will cause React to throw an error.
-   * Just don't update these params between renders. Why would you do that?
    */
   join: K;
   /**
@@ -52,13 +50,6 @@ export type PUseJoin<
    */
   dir?: "input" | "output" | "bidirectional";
   /**
-   * If true, console.log a default message for every message sent/recieved.
-   * If a function, you will be able to implement your own logging function.
-   *  - The return goes into a console.log().
-   *  - You can return nothing if you want to handle logging yourself.
-   */
-  log?: boolean | LogFunction<T, K>;
-  /**
    * Effects is an object which affects how the publish function works.
    */
   effects?: {
@@ -73,10 +64,6 @@ export type PUseJoin<
      * Boolean types will send `false`, number types will send `0`, and string types will send an empty string.
      */
     resetAfterMs?: number;
-  };
-  mock?: {
-    initialValue?: State<T, K>;
-    logicWave?: MockLogicWave<T>;
   };
 };
 
@@ -160,14 +147,19 @@ export type LogFunction<
  *  }
  * ```
  */
-export type JoinMap = {
-  readonly [K: string]:
-    | PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>
-    | ReadonlyArray<PUseJoin<keyof SignalMap, SingleJoin | MultiJoin>>
-    | { readonly [K: string]: JoinMap[string] };
-};
+export type JoinMap =
+  | JoinLeaf<SingleJoin | MultiJoin>
+  | readonly JoinLeaf<SingleJoin | MultiJoin>[]
+  | { readonly [key: string]: JoinMap };
 
-export type MockLogicWave<T extends keyof SignalMap> = (
+// This union instead of PUseJoin<any,any> because that helps with
+// inference when making the mock.logicWave function's `value` arg's type narrowing
+type JoinLeaf<K extends SingleJoin | MultiJoin> =
+  | PUseJoin<"boolean", K>
+  | PUseJoin<"number", K>
+  | PUseJoin<"string", K>;
+
+export type MockLogicWave<T extends keyof SignalMap = any> = (
   value: SignalMap[T],
   getJoin: <G extends keyof SignalMap>(
     type: G,
@@ -178,4 +170,4 @@ export type MockLogicWave<T extends keyof SignalMap> = (
     join: string | number,
     value: SignalMap[G],
   ) => void,
-) => SignalMap[T];
+) => SignalMap[T] | undefined;

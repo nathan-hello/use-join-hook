@@ -51,7 +51,6 @@ function JoinMapEntryToString<T extends keyof SignalMap>(
     ...(item.key && { key: item.key }),
     ...(item.dir && { dir: item.dir }),
     ...(item.effects && { effects: item.effects }),
-    ...(item.log !== undefined && { log: item.log }),
   };
 
   // Calculate type-specific offset
@@ -157,18 +156,3 @@ export function JoinMapToStringByType(J: JoinMap): string {
   result += "}";
   return result;
 }
-const J = {
-  Join1: { type: "boolean", join: 1, key: "Asdf" },
-  Group1: {
-    Join2: { type: "number", join: 2, key: "Fdsa" },
-  },
-  Group2: {
-    Join3: { type: "string", join: 3, key: "Zxcv" },
-  },
-  Group3: [
-    { type: "string", join: 4, key: "Vcxz" },
-    { type: "number", join: 5, key: "Qwer1" },
-    { type: "number", join: 6, key: "Qwer2" },
-    { type: "number", join: 7, key: "Qwer3" },
-  ],
-} as const satisfies JoinMap;

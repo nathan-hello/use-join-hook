@@ -1,11 +1,14 @@
 import { LogFunction } from "@/types.js";
 
-export const logger: LogFunction<any, any> = (params) => {
+export function logger(
+  params: Parameters<LogFunction<any, any>>[0],
+  globalLogger: LogFunction<any, any> | boolean | undefined,
+) {
   const { direction, join, options, value } = params;
-  if (options.log === false) return;
+  if (globalLogger === false) return;
 
-  if (typeof options.log === "function") {
-    const ret = options.log(params);
+  if (typeof globalLogger === "function") {
+    const ret = globalLogger(params);
     if (ret === undefined) {
       return;
     }
@@ -24,7 +27,7 @@ export const logger: LogFunction<any, any> = (params) => {
     : "";
 
   console.log(`${t}:${j} ${d} value: ${v} ${k}`);
-};
+}
 
 function rightPad(s: string, len: number, char: string) {
   if (s.length >= len) return s;

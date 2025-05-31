@@ -1,5 +1,5 @@
 // This file is exported for internal use only.
-// To use useJoinArray, pass in an array or {start: number; end: number} to options.join
+// To use useJoinArray, pass in `(number | string)[] | {start: number; end: number}` to options.join
 
 import { useState, useEffect } from "react";
 import {
@@ -8,9 +8,17 @@ import {
   MockCrComLib,
 } from "@/mock/store.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import { MultiJoin, PUseJoin, SignalMap, RUseJoin } from "@/types.js";
+import {
+  MultiJoin,
+  PUseJoin,
+  SignalMap,
+  RUseJoin,
+  MockLogicWave,
+} from "@/types.js";
 import { pubWithTimeoutMulti, useDebounceMulti } from "@/hook/effects.js";
 import { logger } from "@/utils/log.js";
+import { TGlobalParams, useJoinParamsContext } from "@/context.js";
+import { registerJoin, unregisterJoin } from "@/utils/debug.js";
 
 // This file is exported for internal use only.
 // To use useJoinArray, pass in a MultiJoin to options.join in useJoin
@@ -25,22 +33,18 @@ export function useJoinMulti<T extends keyof SignalMap>(
       ? (RealCrComLib as CrComLibInterface)
       : MockCrComLib;
 
+  const globalParams = useJoinParamsContext();
+
   useEffect(() => {
     const ids = joins.map((join, index) => {
-      if (CrComLib instanceof _MockCrComLib) {
-        if (options.mock?.logicWave) {
-          CrComLib.registerMock(
-            options.type,
-            options.join.toString(),
-            options.mock.logicWave,
-          );
-        }
-      }
       const id = CrComLib.subscribeState(
         options.type,
         join.toString(),
         function cb(value) {
-          logger({ options, join, value, index, direction: "recieved" });
+          logger(
+            { options, join, value, index, direction: "recieved" },
+            globalParams?.logger,
+          );
           setState((prev) => {
             const old = [...prev];
             old[index] = value;
@@ -49,17 +53,35 @@ export function useJoinMulti<T extends keyof SignalMap>(
         },
       );
 
-      if (
-        CrComLib instanceof _MockCrComLib &&
-        options?.mock?.initialValue?.[index] &&
-        state[index] !== { boolean: false, number: 0, string: "" }[options.type]
-      ) {
-        CrComLib.publishEvent(
-          options.type,
-          join,
-          options.mock.initialValue[index],
-        );
+      if (CrComLib instanceof _MockCrComLib) {
+        // Because TGlobalParams relies on JoinMap to extract all of the joins
+        // if there isn't a type we're giving TGlobalParams, it thinks that
+        // globalParams.logicWaves[options.type] is always {} even if it does exist.
+        // The type kind of collapses because of its autocompletion. This is runtime safe.
+        // @ts-ignore-next-line
+        const m = globalParams?.logicWaves?.[options.type]?.[join];
+        if (m !== undefined) {
+          CrComLib.registerMock(
+            options.type,
+            join,
+            m.logicWave,
+            m.initialValue,
+          );
+        }
       }
+
+      registerJoin(
+        options.type,
+        join,
+        options,
+        () => state[index]!,
+        (v) =>
+          pubState((prev) => {
+            const copy = [...prev];
+            copy[index] = v;
+            return copy;
+          }),
+      );
 
       return { id, join: join.toString(), idx: index };
     });
@@ -67,6 +89,7 @@ export function useJoinMulti<T extends keyof SignalMap>(
     return () => {
       ids.forEach(({ id, join }) => {
         CrComLib.unsubscribeState(options.type, join, id);
+        unregisterJoin(options.type, join);
       });
     };
   }, [options.join]);
@@ -87,8 +110,12 @@ joins array: ${JSON.stringify(joins)}
 `);
         return;
       }
+      logger(
+        { options, join: joinStr, value, index, direction: "sent" },
+        globalParams?.logger,
+      );
+
       CrComLib.publishEvent(options.type, joinStr, value);
-      logger({ options, join: joinStr, value, index, direction: "sent" });
     });
   };
 

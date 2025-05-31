@@ -16,6 +16,7 @@ import type {
   SingleJoin,
 } from "@/types.js";
 import { logger } from "@/utils/log.js";
+import { useJoinParamsContext } from "@/context.js";
 
 function joinIsArray<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin> | PUseJoin<T, MultiJoin>,
@@ -45,38 +46,38 @@ export function useJoin<T extends keyof SignalMap>(
     { boolean: false, number: 0, string: "" }[options.type],
   );
 
+  const globalParams = useJoinParamsContext();
+
   const CrComLib: CrComLibInterface =
     RealCrComLib.isCrestronTouchscreen() || RealCrComLib.isIosDevice()
       ? (RealCrComLib as CrComLibInterface)
       : MockCrComLib;
 
   useEffect(() => {
-    if (CrComLib instanceof _MockCrComLib) {
-      if (options.mock?.logicWave) {
-        CrComLib.registerMock(
-          options.type,
-          options.join.toString(),
-          options.mock.logicWave,
-        );
-      }
-    }
-    registerJoin(options.type, join, options, () => state);
+    registerJoin(options.type, join, options, () => state, pubState);
 
     const id = CrComLib.subscribeState(
       options.type,
       join,
       function cb(value: SignalMap[T]) {
-        logger({ options, join, direction: "recieved", value });
+        logger(
+          { options, join, direction: "recieved", value },
+          globalParams?.logger,
+        );
         setState(value);
       },
     );
 
-    if (
-      CrComLib instanceof _MockCrComLib &&
-      options?.mock?.initialValue &&
-      state !== { boolean: false, number: 0, string: "" }[options.type]
-    ) {
-      CrComLib.publishEvent(options.type, join, options.mock.initialValue);
+    if (CrComLib instanceof _MockCrComLib) {
+      // Because TGlobalParams relies on JoinMap to extract all of the joins
+      // if there isn't a type we're giving TGlobalParams, it thinks that
+      // globalParams.logicWaves[options.type] is always {} even if it does exist.
+      // The type kind of collapses because of its autocompletion. This is runtime safe.
+      // @ts-ignore-next-line
+      const m = globalParams?.logicWaves?.[options.type]?.[join];
+      if (m !== undefined) {
+        CrComLib.registerMock(options.type, join, m.logicWave, m.initialValue);
+      }
     }
 
     return () => {
@@ -88,8 +89,11 @@ export function useJoin<T extends keyof SignalMap>(
   let pubState: React.Dispatch<React.SetStateAction<SignalMap[T]>> = (v) => {
     const nextValue = typeof v === "function" ? v(state) : v;
 
+    logger(
+      { options, join, value: nextValue, direction: "sent" },
+      globalParams?.logger,
+    );
     CrComLib.publishEvent(options.type, join, nextValue);
-    logger({ options, join, value: nextValue, direction: "sent" });
   };
 
   if (options?.effects?.resetAfterMs) {
