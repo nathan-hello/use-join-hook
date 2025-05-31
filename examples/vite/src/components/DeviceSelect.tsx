@@ -49,7 +49,7 @@ export function DeviceSelect<T extends TDevice>({ device, handleChange, choices 
                     {choices.map(c => (
                         < DropdownMenuRadioItem
                             key={`dk-${c.id}`}
-                            className={`py-8 border-b mx-auto border-gray-500 rounded-none last:border-none text-center font-semibold`}
+                            className={`py-8 border-b mx-auto border-gray-500 rounded-none last:border-none text-center font-semibold bg-white`}
                             value={c.id.toString()}
                         >
                             {c.name}

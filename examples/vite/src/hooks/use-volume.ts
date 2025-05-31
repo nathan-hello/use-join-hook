@@ -47,6 +47,12 @@ export function useVolume({ choices }: { choices: TVolume[] }) {
     }
   }
 
+  function manualVol(v: number) {
+    if (Math.abs(vol - v) > 5) {
+      pubVol(v);
+    }
+  }
+
   const device =
     inUse === 0 ? VOLUME_UNDEFINED : choices.find((v) => v.id === inUse);
   if (!device) {
@@ -63,7 +69,7 @@ export function useVolume({ choices }: { choices: TVolume[] }) {
     device: { state: device, update: update, choices: choices },
     level: {
       state: vol,
-      update: { manual: pubVol, increment: volUp, decrement: volDown },
+      update: { manual: manualVol, increment: volUp, decrement: volDown },
     },
     mute: { state: mute, update: changeMute, toggle: toggleMute },
   };

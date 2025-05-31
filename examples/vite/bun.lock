@@ -16,7 +16,7 @@
         "tailwind-merge": "^3.0.1",
         "tailwindcss": "^4.0.6",
         "tailwindcss-animate": "^1.0.7",
-        "use-join": "^3.1.0",
+        "use-join": "^4.1.0",
       },
       "devDependencies": {
         "@types/react": "^19.0.8",
@@ -424,7 +424,7 @@
 
     "use-callback-ref": ["use-callback-ref@1.3.3", "", { "dependencies": { "tslib": "^2.0.0" }, "peerDependencies": { "@types/react": "*", "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-jQL3lRnocaFtu3V00JToYz/4QkNWswxijDaCVNZRiRTO3HQDLsdu1ZtmIUvV4yPp+rvWm5j0y0TG/S61cuijTg=="],
 
-    "use-join": ["use-join@3.1.0", "", { "dependencies": { "@pepperdash/ch5-crcomlib-lite": "^2.10.3" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" } }, "sha512-Wf6NkiGbTfMSeELpogOtACTQCPwY5jzRgDJoKyAPSW5h9kxlCv67s31aXSipk+uyn0MjaFOvUQZBcaG6WDP1Zw=="],
+    "use-join": ["use-join@4.1.0", "", { "dependencies": { "@pepperdash/ch5-crcomlib-lite": "^2.10.3" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" } }, "sha512-um2tgxgMsBgryDR6w9oJbArc0oGV6MC+cGMFRSjcu8h3H7eDKc5OyyssasT0d+Qtaq2OdnuDIkJRIPmAIxezWA=="],
 
     "use-sidecar": ["use-sidecar@1.1.3", "", { "dependencies": { "detect-node-es": "^1.1.0", "tslib": "^2.0.0" }, "peerDependencies": { "@types/react": "*", "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-Fedw0aZvkhynoPYlA5WXrMCAMm+nSWdZt6lzJQ7Ok8S6Q+VsHmHpRWndVRJ8Be0ZbkfPc5LRYH+5XrzXcEeLRQ=="],
 
