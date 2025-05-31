@@ -104,7 +104,7 @@ export type Publisher<
 > = K extends SingleJoin
   ? React.Dispatch<React.SetStateAction<SignalMap[T]>>
   : K extends MultiJoin
-    ? React.Dispatch<React.SetStateAction<SignalMap[T][]>>
+    ? React.Dispatch<React.SetStateAction<(SignalMap[T] | undefined)[]>>
     : never;
 
 export type LogFunction<

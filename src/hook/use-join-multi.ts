@@ -1,23 +1,17 @@
 // This file is exported for internal use only.
 // To use useJoinArray, pass in `(number | string)[] | {start: number; end: number}` to options.join
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   _MockCrComLib,
   CrComLibInterface,
   MockCrComLib,
 } from "@/mock/store.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import {
-  MultiJoin,
-  PUseJoin,
-  SignalMap,
-  RUseJoin,
-  MockLogicWave,
-} from "@/types.js";
+import { MultiJoin, PUseJoin, SignalMap, RUseJoin } from "@/types.js";
 import { pubWithTimeoutMulti, useDebounceMulti } from "@/hook/effects.js";
 import { logger } from "@/utils/log.js";
-import { TGlobalParams, useJoinParamsContext } from "@/context.js";
+import { useJoinParamsContext } from "@/context.js";
 import { registerJoin, unregisterJoin } from "@/utils/debug.js";
 
 // This file is exported for internal use only.
@@ -53,23 +47,6 @@ export function useJoinMulti<T extends keyof SignalMap>(
         },
       );
 
-      if (CrComLib instanceof _MockCrComLib) {
-        // Because TGlobalParams relies on JoinMap to extract all of the joins
-        // if there isn't a type we're giving TGlobalParams, it thinks that
-        // globalParams.logicWaves[options.type] is always {} even if it does exist.
-        // The type kind of collapses because of its autocompletion. This is runtime safe.
-        // @ts-ignore-next-line
-        const m = globalParams?.logicWaves?.[options.type]?.[join];
-        if (m !== undefined) {
-          CrComLib.registerMock(
-            options.type,
-            join,
-            m.logicWave,
-            m.initialValue,
-          );
-        }
-      }
-
       registerJoin(
         options.type,
         join,
@@ -94,13 +71,12 @@ export function useJoinMulti<T extends keyof SignalMap>(
     };
   }, [options.join]);
 
-  let pubState: React.Dispatch<React.SetStateAction<SignalMap[T][]>> = (v) => {
+  let pubState: React.Dispatch<
+    React.SetStateAction<(SignalMap[T] | undefined)[]>
+  > = (v) => {
     const nextValue = typeof v === "function" ? v(state) : v;
-
-    nextValue.forEach((value, index) => {
-      const joinStr = joins[index]?.toString();
-      if (!joinStr) {
-        console.error(`
+    if (nextValue.length !== joins.length) {
+      console.error(`
 useJoin pubState error: 
 given array was of a different length than originally set.
 length of value given: ${nextValue.length}
@@ -108,8 +84,14 @@ length of original join array: ${joins.length}
 given value: ${JSON.stringify(nextValue)}
 joins array: ${JSON.stringify(joins)}
 `);
+      return;
+    }
+
+    nextValue.forEach((value, index) => {
+      if (value === undefined) {
         return;
       }
+      const joinStr = joins[index]!.toString();
       logger(
         { options, join: joinStr, value, index, direction: "sent" },
         globalParams?.logger,

@@ -19,6 +19,7 @@ const LogicWaveReverseString: MockLogicWave<"string"> = (v, get, pub) => {
 };
 
 export const MockControlSystem: TGlobalParams<typeof J> = {
+  JoinMap: J,
   logicWaves: {
     boolean: {
       "7": {
@@ -33,10 +34,17 @@ export const MockControlSystem: TGlobalParams<typeof J> = {
     number: {
       "1": {
         logicWave: (v, get, pub) => {
-          if (get("boolean", 7)) {
-            pub("boolean", 7, true);
+          const inUse = get("number", 2);
+          if (inUse === 1) {
+            pub("number", 99, v);
+            console.log("from level", get("number", 99));
+            return v;
           }
-          return v;
+          if (inUse === 2) {
+            pub("number", 100, v);
+            return v;
+          }
+          return 0;
         },
       },
       "2": {

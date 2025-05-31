@@ -14,15 +14,18 @@ function App() {
 
   return (
     <main className="flex flex-row justify-between w-screen h-screen text-3xl text-gray-800">
-      <div className='flex flex-col w-1/2 m-auto bg-red-500'>
+      <div className='flex flex-col w-1/2 mx-auto '>
         {strings.map((s, i) => (
-          <div className='flex flex-col'>
+          <div className='flex flex-col m-auto'>
             <span className='truncate'> Reversed: {s}</span>
-            <input className='border-white' onChange={(e) => pubStrings((p) => {
-              const copy = [...strings];
-              copy[i] = e.target.value;
-              return copy;
-            })} />
+            <input
+              type='text'
+              placeholder='Enter text...'
+              className="p-2 text-black placeholder-gray-400 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" onChange={(e) => pubStrings((p) => {
+                const arr: (string | undefined)[] = new Array(p.length).fill(undefined);
+                arr[i] = e.target.value;
+                return arr;
+              })} />
           </div>
         ))}
       </div>

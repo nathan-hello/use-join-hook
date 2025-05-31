@@ -64,12 +64,23 @@ export function pubWithTimeoutMulti<T extends keyof SignalMap>(
   if (!options?.effects?.resetAfterMs) return pubState;
 
   return (v) => {
+    const len = getJoinArrayLength(options.join);
     pubState(v);
     setTimeout(() => {
-      const resetValues = new Array(v.length).fill(
+      const resetValues = new Array(len).fill(
         { boolean: false, number: 0, string: "" }[options.type],
       );
       pubState(resetValues);
     }, options.effects?.resetAfterMs);
   };
+}
+
+function getJoinArrayLength<T extends keyof SignalMap>(
+  join: PUseJoin<T, MultiJoin>["join"],
+): number {
+  if ("start" in join) {
+    return join.end - join.start + 1;
+  } else {
+    return join.length;
+  }
 }

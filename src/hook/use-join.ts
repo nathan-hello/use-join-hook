@@ -68,18 +68,6 @@ export function useJoin<T extends keyof SignalMap>(
       },
     );
 
-    if (CrComLib instanceof _MockCrComLib) {
-      // Because TGlobalParams relies on JoinMap to extract all of the joins
-      // if there isn't a type we're giving TGlobalParams, it thinks that
-      // globalParams.logicWaves[options.type] is always {} even if it does exist.
-      // The type kind of collapses because of its autocompletion. This is runtime safe.
-      // @ts-ignore-next-line
-      const m = globalParams?.logicWaves?.[options.type]?.[join];
-      if (m !== undefined) {
-        CrComLib.registerMock(options.type, join, m.logicWave, m.initialValue);
-      }
-    }
-
     return () => {
       unregisterJoin(options.type, join);
       CrComLib.unsubscribeState(options.type, join, id);
