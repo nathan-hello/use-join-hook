@@ -1,16 +1,16 @@
-import { JoinMap, MockLogicWave, TGlobalParams } from "use-join";
+import { JoinMap, MockLogicWave, JoinParams } from "use-join";
 
 export const J = {
   Audio: {
     Control: {
       Level: { join: 1, type: "number", effects: { debounce: 5 } },
-      Mute: { join: 7, type: "boolean", effects: { resetAfterMs: 100 } },
+      Mute: { join: 1, type: "boolean", effects: { resetAfterMs: 100 } },
     },
     Management: {
       InUse: { join: 2, type: "number" },
     },
   },
-  ManyStrings: { type: "string", join: { start: 10, end: 13 } },
+  ManyStrings: { type: "string", join: { start: 1, end: 4 } },
 } as const satisfies JoinMap;
 
 const LogicWaveReverseString: MockLogicWave<"string"> = (v, get, pub) => {
@@ -18,55 +18,52 @@ const LogicWaveReverseString: MockLogicWave<"string"> = (v, get, pub) => {
   return asdf;
 };
 
-export const MockControlSystem: TGlobalParams<typeof J> = {
-  JoinMap: J,
-  logicWaves: {
-    boolean: {
-      "7": {
-        logicWave: (v, get, pub) => {
-          if (!v) {
-            return;
-          }
-          return !get("boolean", 7);
+export const joinParams: JoinParams<typeof J> = {
+  MockControlSystem: {
+    JoinMap: J,
+    logicWaves: {
+      boolean: {
+        "1": {
+          // This mocks a SIMPL "Toggle" block.
+          // Publishing `true` clocks the output, `false` does nothing.
+          logicWave: (v, get, pub) => {
+            if (!v) {
+              return get("boolean", 1);
+            }
+            return !get("boolean", 1);
+          },
         },
       },
-    },
-    number: {
-      "1": {
-        logicWave: (v, get, pub) => {
-          const inUse = get("number", 2);
-          if (inUse === 1) {
-            pub("number", 99, v);
-            console.log("from level", get("number", 99));
+      number: {
+        "2": {
+          // We reset Level to `0` because we don't have a way of maintaining
+          // arbitrary values between logicWaves that weren't previously defined as joins.
+          logicWave: (v, get, pub) => {
+            pub("number", 1, 0);
+
             return v;
-          }
-          if (inUse === 2) {
-            pub("number", 100, v);
-            return v;
-          }
-          return 0;
+          },
+          initialValue: 1,
         },
       },
-      "2": {
-        initialValue: 1,
-      },
-    },
-    string: {
-      "10": {
-        initialValue: "first",
-        logicWave: LogicWaveReverseString,
-      },
-      "11": {
-        initialValue: "first",
-        logicWave: LogicWaveReverseString,
-      },
-      "12": {
-        initialValue: "first",
-        logicWave: LogicWaveReverseString,
-      },
-      "13": {
-        initialValue: "first",
-        logicWave: LogicWaveReverseString,
+      // Just for fun. Also notice how we can reuse mock functions instead of inlining them.
+      string: {
+        "1": {
+          initialValue: "tsrif",
+          logicWave: LogicWaveReverseString,
+        },
+        "2": {
+          initialValue: "dnoces",
+          logicWave: LogicWaveReverseString,
+        },
+        "3": {
+          initialValue: "driht",
+          logicWave: LogicWaveReverseString,
+        },
+        "4": {
+          initialValue: "htruof",
+          logicWave: LogicWaveReverseString,
+        },
       },
     },
   },

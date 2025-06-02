@@ -1,11 +1,15 @@
 import { LogFunction } from "@/types.js";
 
 export function logger(
-  params: Parameters<LogFunction<any, any>>[0],
-  globalLogger: LogFunction<any, any> | boolean | undefined,
+  params: Parameters<LogFunction>[0],
+  globalLogger: LogFunction | boolean | undefined,
 ) {
   const { direction, join, options, value } = params;
-  if (globalLogger === false) return;
+  if (
+    options.log === false ||
+    (globalLogger === false && options.log === undefined)
+  )
+    return;
 
   if (typeof globalLogger === "function") {
     const ret = globalLogger(params);

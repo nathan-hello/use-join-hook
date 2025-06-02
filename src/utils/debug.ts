@@ -3,7 +3,7 @@ import type { PUseJoin, SignalMap } from "@/types.js";
 // Internal registry to track active joins and their state
 type JoinKey = string; // e.g. "string:2"
 type RegistryEntry<T extends keyof SignalMap> = {
-  options: PUseJoin<any, any>;
+  options: PUseJoin;
   getState: () => any;
   setState: (v: SignalMap[T]) => void;
 };

@@ -1,8 +1,8 @@
 import { _MockCrComLib } from "@/mock/store.js";
 
 export type PUseJoin<
-  T extends keyof SignalMap,
-  K extends SingleJoin | MultiJoin,
+  T extends keyof SignalMap = keyof SignalMap,
+  K extends SingleJoin | MultiJoin = SingleJoin | MultiJoin,
 > = {
   /**
    * `"boolean" | "number" | "string"`. The CrComLib.publishEvent function
@@ -10,25 +10,18 @@ export type PUseJoin<
    */
   type: T;
   /**
-   * If you want to subscribe and publish over a single join, give:
-   * ```ts
-   * number | string
-   * ```
-   *  - A join number or, in the case of Contracts and Reserved Joins, a string.
+   * Subscribe to a specific join: `number | string`
    *
-   * If using multiple joins that are not in order, give:
-   * ```ts
-   * (number | string)[]
-   * ```
-   * - E.g. `[10, 12, "Room.PowerOn"]` will be an array with length 3 of whatever type specified in `type`.
+   * Subscribe to multiple joins: `(number | string)[]`
+   * - `[10, 12, "Room.PowerOn"]` will be an array with length 3 of whatever type specified in `type`.
    * - The returned array will coorespond with the order of the joins.
    * - If you publish over this array, for example `pubRoomPower([false, true, true])`, it will also be in order.
+   * - Publish `undefined` in place of any other value to not update that value.
+   *   - If you wanted to update join 10 and 12, but not Room.PowerOn, you would use
+   *     `pubRoomPower([false, true, undefined])`
    *
-   * If using a series of join numbers and they are in order, give:
-   * ```ts
-   * {start: number; end: number}
-   * ```
-   * - E.g. `{start: 10, end: 17}` is completely equivalent to `[10, 11, 12, 13, 14, 15, 16, 17]`.
+   * Subscribe to multiple joins (shortcut): `{start: number; end: number}`
+   * - `{start: 10, end: 17}` is completely equivalent to `[10, 11, 12, 13, 14, 15, 16, 17]`.
    */
   join: K;
   /**
@@ -65,6 +58,12 @@ export type PUseJoin<
      */
     resetAfterMs?: number;
   };
+  /**
+   * Overwrites GlobalParams.logger. Set this if you have logging enabled/disabled globally
+   * but you want to change that for just this join.
+   * This does not support passing LogFunction like GlobalParams.logger does.
+   */
+  log?: boolean;
 };
 
 // Apparently the generics in State and Publisher aren't enough so we have to
@@ -152,22 +151,22 @@ export type JoinMap =
   | readonly JoinLeaf<SingleJoin | MultiJoin>[]
   | { readonly [key: string]: JoinMap };
 
-// This union instead of PUseJoin<any,any> because that helps with
-// inference when making the mock.logicWave function's `value` arg's type narrowing
+// This union instead of PUseJoin because that helps with
+// inference when making the logicWave function's `value` arg's type narrowing
 type JoinLeaf<K extends SingleJoin | MultiJoin> =
   | PUseJoin<"boolean", K>
   | PUseJoin<"number", K>
   | PUseJoin<"string", K>;
 
-export type MockLogicWave<T extends keyof SignalMap = any> = (
+export type MockLogicWave<T extends keyof SignalMap = keyof SignalMap> = (
   value: SignalMap[T],
   getJoin: <G extends keyof SignalMap>(
     type: G,
     join: number | string,
-  ) => SignalMap[G] | undefined,
+  ) => SignalMap[G],
   pubJoin: <G extends keyof SignalMap>(
     type: G,
     join: string | number,
     value: SignalMap[G],
   ) => void,
-) => SignalMap[T] | undefined;
+) => SignalMap[T];

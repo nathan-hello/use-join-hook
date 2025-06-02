@@ -1,0 +1,36 @@
+#ENABLE_DYNAMIC
+#SYMBOL_NAME "Reverse String"
+#CATEGORY "10" // Serial
+#PRINT_TO_TRACE
+#ANALOG_SERIAL_EXPAND InputsWithOutputs
+#DEFAULT_VOLATILE
+#ENABLE_STACK_CHECKING
+#ENABLE_TRACE 
+#ENCODING_INHERIT_FROM_PROGRAM
+
+STRING_INPUT input[100,1][255];
+
+STRING_OUTPUT reversed[100,1];
+
+integer i;
+integer stringIndex;
+string tmp[255];
+string revTmpTmp[1];
+string revTmp[255];
+
+// This reverse function doesn't work. It clips the first letter for some reason.
+CHANGE input {
+	i = GetLastModifiedArrayIndex();
+	tmp = input[i]; 
+	stringIndex = len(tmp);
+	revTmp = "";
+	
+	do {
+		revTmpTmp = mid(tmp, stringIndex, stringIndex + 1);
+		makestring(revTmp, "%s%s", revTmp, revTmpTmp); 
+		stringIndex = stringIndex - 1;
+	}
+	until (stringIndex = 1);
+	
+	reversed[i] = revTmp;
+}

@@ -5,7 +5,9 @@ import { cn } from "@/lib/utils";
 import { useVolume } from "@/hooks/use-volume";
 import { DeviceSelect } from "@/components/DeviceSelect";
 
-export function VolumeSlider({ volume, className }: { volume: ReturnType<typeof useVolume>; className?: string; }) {
+export function VolumeSlider({ className }: { className?: string; }) {
+
+    const volume = useVolume({ choices: [{ id: 1, mute: true, name: "Room Speakers" }, { id: 2, mute: false, name: "Teams Volume" }] });
 
     function handleVolumeChange(v: number[]) {
         const num = v.at(0) ?? 0;
@@ -19,7 +21,7 @@ export function VolumeSlider({ volume, className }: { volume: ReturnType<typeof 
     return (
         <div className={cn(
             "flex h-full flex-col items-center w-full p-2 bg-white border border-gray-200 shadow-md rounded-xl gap-y-2",
-            className
+            "m-auto w-[40%] h-[75%]"
         )}>
             <DeviceSelect device={volume.device.state} handleChange={volume.device.update} choices={volume.device.choices} />
             {/* <h2 className="mb-2 text-lg font-semibold text-center text-gray-800">{label}</h2> */}

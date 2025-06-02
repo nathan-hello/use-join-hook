@@ -1,158 +1,147 @@
-import type {
-  JoinMap,
-  MultiJoin,
-  PUseJoin,
-  SignalMap,
-  SingleJoin,
-} from "@/types.js";
+import type { JoinMap, PUseJoin, SignalMap } from "@/types.js";
 
-export function JoinMapToString(J: JoinMap, indent = 0): string {
-  const spaces = "  ".repeat(indent);
+// This file is not accessible over the NPM package.
+// It is simply meant to take in your JoinMap and print it out organized, so you can
+// better manage your joins in SIMPL. Copy this file and run it locally using npm or bun.
+// Import your JoinMap and call `pretty(joinMap)` and in stdout you will get a better
+// formatted version of your joinMap, organized by the structure of your JoinMap, by type,
+// and sorted by the parsed join number.
 
-  // Convert object to entries for processing
-  const entries = Object.entries(J);
+// Collect returns an array of objects that correspond with the placement within the JoinMap
+// I.e. `{Audio: { Control: {...usejoin argument}` will give you a key of "Audio.Control".
+// You can customize the printing however you'd like with that. Maybe you want to just sort
+// by the options.key value if it exists.
 
-  // Start building the string
-  let result = "{\n";
+// You're not able to import this and run from the npm package because doing so would mean
+// the npm/deno/bun would import the rest of index.ts, and because this is a React hook
+// library, the server runtimes will throw.
 
-  for (let i = 0; i < entries.length; i++) {
-    // @ts-expect-error
-    const [key, value] = entries[i];
-    const isLast = i === entries.length - 1;
+// Put your JoinMap here!
+// import {J} from "./joins.ts"
+//
+// pretty(J);
 
-    result += `${spaces}  "${key}": `;
+function pretty(joinMap: JoinMap) {
+  const asArr = collect(joinMap);
 
-    if (Array.isArray(value)) {
-      result += "[\n";
-      value.forEach((item, idx) => {
-        result += `${spaces}    ${JSON.stringify(item)}${idx < value.length - 1 ? "," : ""}\n`;
+  const sortedByType = {
+    boolean: asArr.filter((v) => v.value.type === "boolean").sort(sort),
+    number: asArr.filter((v) => v.value.type === "number").sort(sort),
+    string: asArr.filter((v) => v.value.type === "string").sort(sort),
+  } as const;
+
+  function formatArray(arr: typeof asArr) {
+    return arr
+      .map(
+        (b) =>
+          `    ${JSON.stringify({
+            [b.value.key ?? b.key]: {
+              join: getJoin(b.value),
+              effects: b.value.effects,
+              dir: b.value.dir,
+            },
+          })
+            .replace(/:/g, ": ")
+            .replace(/,/g, ", ")}`,
+      )
+      .join(",\n");
+  }
+
+  const jsonString = `{
+  "boolean": [
+${formatArray(sortedByType.boolean)}
+  ],
+  "number": [
+${formatArray(sortedByType.number)}
+  ],
+  "string": [
+${formatArray(sortedByType.string)}
+  ]
+}`;
+
+  console.log(jsonString);
+}
+
+type BoxedJoin = { key: string; value: PUseJoin };
+
+function collect(joinMap: unknown): BoxedJoin[] {
+  const result: BoxedJoin[] = [];
+
+  function recurse(node: unknown, path: string) {
+    if (Array.isArray(node)) {
+      node.forEach((item, idx) => {
+        recurse(item, `${path}[${idx}]`);
       });
-      result += `${spaces}  ]${isLast ? "" : ","}\n`;
-    }
-    // If it has a 'type' property, it's a PUseJoin object
-    else if (value && typeof value === "object" && "type" in value) {
-      result += `${JSON.stringify(value)}${isLast ? "" : ","}\n`;
-    }
-    // Otherwise it's a nested object
-    else if (value && typeof value === "object") {
-      result += `${JoinMapToString(value as JoinMap, indent + 1)}${isLast ? "" : ","}\n`;
-    }
-  }
-
-  result += `${spaces}}`;
-  return result;
-}
-
-function JoinMapEntryToString<T extends keyof SignalMap>(
-  item: PUseJoin<T, SingleJoin | MultiJoin>,
-): Array<PUseJoin<T, string>> {
-  const baseOutput: Omit<PUseJoin<T, string>, "join"> = {
-    type: item.type,
-    ...(item.key && { key: item.key }),
-    ...(item.dir && { dir: item.dir }),
-    ...(item.effects && { effects: item.effects }),
-  };
-
-  // Calculate type-specific offset
-  const offset =
-    typeof item.offset === "number"
-      ? item.offset
-      : (item.offset?.[item.type] ?? 0);
-
-  // Handle different join types
-  if (typeof item.join === "string") {
-    return [{ ...baseOutput, join: item.join }];
-  }
-
-  if (typeof item.join === "number") {
-    return [{ ...baseOutput, join: (item.join + offset).toString() }];
-  }
-
-  if (Array.isArray(item.join)) {
-    return item.join.map((j) => ({
-      ...baseOutput,
-      join: (typeof j === "number" ? j + offset : j).toString(),
-    }));
-  }
-
-  // Handle MultiJoinObject (range)
-  const { start, end } = item.join;
-  return Array.from({ length: end - start + 1 }, (_, i) => ({
-    ...baseOutput,
-    join: (start + i + offset).toString(),
-  }));
-}
-
-function isPUseJoin(
-  value: any,
-): value is PUseJoin<keyof SignalMap, SingleJoin | MultiJoin> {
-  return (
-    value &&
-    typeof value === "object" &&
-    "type" in value &&
-    "join" in value &&
-    typeof value.type === "string"
-  );
-}
-
-export function JoinMapToStringByType(J: JoinMap): string {
-  const groups: Record<
-    keyof SignalMap,
-    Array<Omit<PUseJoin<keyof SignalMap, string>, "type">>
-  > = {
-    boolean: [],
-    number: [],
-    string: [],
-  };
-
-  function collectEntries(obj: JoinMap, path: string[] = []) {
-    Object.entries(obj).forEach(([key, value]) => {
-      const currentPath = [...path, key];
-
-      if (Array.isArray(value)) {
-        value.forEach((item) => {
-          if (isPUseJoin(item)) {
-            const entries = JoinMapEntryToString(item);
-            entries.forEach((entry) => {
-              const { type, ...withoutType } = entry;
-              groups[entry.type].push({
-                ...withoutType,
-                key: currentPath.join("."),
-              });
-            });
+    } else if (node && typeof node === "object") {
+      // If node is a PUseJoin with join as a range
+      if (
+        "type" in node &&
+        "join" in node &&
+        node.type &&
+        ["boolean", "number", "string"].includes(node.type as keyof SignalMap)
+      ) {
+        const join = node.join;
+        if (
+          join &&
+          typeof join === "object" &&
+          "start" in join &&
+          "end" in join &&
+          typeof join.start === "number" &&
+          typeof join.end === "number"
+        ) {
+          // Expand the range
+          let idx = 0;
+          for (let j = join.start; j <= join.end; j++) {
+            // Create a shallow copy with the join number replaced
+            const nodeCopy = { ...node, join: j };
+            recurse(nodeCopy, `${path}[${idx}]`);
+            idx++;
           }
-        });
-      } else if (value && typeof value === "object") {
-        if (isPUseJoin(value)) {
-          const entries = JoinMapEntryToString(value);
-          entries.forEach((entry) => {
-            const { type, ...withoutType } = entry;
-            groups[entry.type].push({
-              ...withoutType,
-              key: currentPath.join("."),
-            });
-          });
         } else {
-          collectEntries(value as JoinMap, currentPath);
+          result.push({ key: path, value: node as PUseJoin });
+        }
+      } else {
+        for (const [k, v] of Object.entries(node)) {
+          const nextPath = path ? `${path}.${k}` : k;
+          recurse(v, nextPath);
         }
       }
-    });
+    }
   }
 
-  collectEntries(J);
-
-  let result = "{\n";
-
-  Object.entries(groups).forEach(([type, entries], typeIndex) => {
-    if (entries.length > 0) {
-      result += `  "${type}": [\n`;
-      entries.forEach((entry, i) => {
-        result += `    ${JSON.stringify(entry)}${i < entries.length - 1 ? "," : ""}\n`;
-      });
-      result += `  ]${typeIndex < 2 ? "," : ""}\n`;
-    }
-  });
-
-  result += "}";
+  recurse(joinMap, "");
   return result;
+}
+
+function getJoin(options: PUseJoin): string {
+  let offset = 0;
+  if (
+    Array.isArray(options.join) ||
+    (typeof options.join === "object" && "start" in options.join)
+  ) {
+    throw Error("Multijoins aren't supposed to be here!");
+  }
+
+  if (typeof options.offset === "number") {
+    offset = options.offset;
+  }
+  if (typeof options.offset === "object") {
+    offset = options.offset[options.type] ?? 0;
+  }
+
+  if (typeof options.join === "number") {
+    return (offset + options.join).toString();
+  }
+  return options.join;
+}
+
+function sort(a: BoxedJoin, b: BoxedJoin): number {
+  const x = Number(getJoin(a.value));
+  const y = Number(getJoin(b.value));
+  // Float string joins to the top.
+  if (!x || !y) {
+    return -1;
+  }
+
+  return x - y;
 }
