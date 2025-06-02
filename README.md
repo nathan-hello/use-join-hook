@@ -25,8 +25,8 @@ function RoomPower() {
 This will send a true digital signal over join 1 for 50ms, then send a false digital signal.
 In your Simpl Windows, you use the true to send your command, and the component is subscribed to the feedback.
 
-It's a proper `useState` call, so when your Crestron Processor updates the digital value on join 1,
-it will send it down to the touchpanel and update the `power` variable. 
+`power` and `pubPower` connect directly to `fb1` and `press1`, respectively, in the Touchpanel symbol in SIMPL.
+Feedback on the left, mutation on the right.
 
 There is a full example in the `examples/vite` directory.
 
@@ -35,7 +35,10 @@ Use `pubState` instead of `setState` when naming the function variable from `use
 
 You can also subscribe to multiple joins over one hook call, giving you an array of `boolean | number | string`'s. See the type definition for details.
 
-This is all you need to get started. Please submit an issue if you have any questions! 
+This is all you need to get started. This hook uses `@pepperdash/ch5-crcomlib-lite` which is a fork of the official CrComLib
+that has a fixed package.json. This means that there isn't any extra code or patches you need to talk to the Control Processor.
+
+Please submit an issue if you have any questions! 
 
 # Parameters
 
