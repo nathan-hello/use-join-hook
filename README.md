@@ -30,8 +30,9 @@ Feedback on the left, mutation on the right.
 
 There is a full example in the `examples/vite` directory.
 
-[!TIP]
-Use `pubState` instead of `setState` when naming the function variable from `useJoin`. This helps you keep track of what is going to a Crestron Processor and what is local React state.
+>[!TIP]
+>Use `pubState` instead of `setState` when naming the function variable from `useJoin`. This helps you keep track of what is going to a Crestron Processor and what is local React state.
+
 
 You can also subscribe to multiple joins over one hook call, giving you an array of `boolean | number | string`'s. See the type definition for details.
 
@@ -116,9 +117,6 @@ Quick note on MultiJoins:
 
 Use JoinMap to consolodate all of your useJoin arguments into one central location.
 
-This is useful for having one central location in your project that has all of the join numbers necessary to talk 
-to Crestron. This example is from `examples/vite/src/utils/join.ts`.
-
 ```ts
 import type { JoinMap } from "use-join";
 // prettier-ignore
@@ -141,7 +139,7 @@ export const J = {
 ```
 
 This means that instead of having a bunch of join numbers across your application, you have a single source
-of truth. And, if you utilize the `offset` attribute, you can make functions that returns a JoinMap with an offset, like so:
+of truth. And, if you utilize the `offset` attribute, you can compose your JoinMap with functions.
 
 ```ts
 import { JoinMap, PUseJoin } from "use-join";
@@ -273,3 +271,8 @@ through the `<JoinParamsProvider>`, the values will persist when the component u
 ### Debugging
 
 You can call `window.getJoin("boolean", 1)` to get the current state of boolean join 1, as your touchpanel sees it.
+
+
+### Unsupported
+
+There isn't any way to publish an object over `useJoin`. This hook was made solely with SIMPL Windows and a plain-jane React frontend in mind. If publishing and subscribing to objects is a requirement to you, please put in an issue. 
