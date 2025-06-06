@@ -23,10 +23,11 @@ function RoomPower() {
 ```
 
 This will send a true digital signal over join 1 for 50ms, then send a false digital signal.
-In your Simpl Windows, you use the true to send your command, and the component is subscribed to the feedback.
+In your Simpl Windows, you use the `true` to send your command, and the component is subscribed to the feedback.
 
 `power` and `pubPower` connect directly to `fb1` and `press1`, respectively, in the Touchpanel symbol in SIMPL.
-Feedback on the left, mutation on the right.
+Feedback on the left, mutation on the right. Also just like a normal `useState` call, except obviously your
+control processor is sitting in the middle.
 
 There is a full example in the `examples/vite` directory.
 
@@ -142,7 +143,7 @@ This means that instead of having a bunch of join numbers across your applicatio
 of truth. And, if you utilize the `offset` attribute, you can compose your JoinMap with functions.
 
 ```ts
-import { JoinMap, PUseJoin } from "use-join";
+import type { JoinMap, PUseJoin } from "use-join";
 // prettier-ignore
 export function CameraControlJoins(offset: PUseJoin["offset"]) {
   return {
@@ -175,6 +176,8 @@ export function CameraControlJoins(offset: PUseJoin["offset"]) {
 
 Across different projects, you can know that all of the joins are in a certain order, if not in the exact same place in the touchpanel symbol.
 
+Better yet, you could make your own hook or component that takes in `ReturnType<typeof CameraControlJoins>` for maximum portability!
+
 
 ### Printing For Use In SIMPL
 
@@ -183,7 +186,7 @@ JSON output for better visibility. When you use JoinMap, often times the semanti
 joins (which is how you should organize them) is chaotic when you're trying to dump it into the
 touchpanel symbol.
 
-Take `print.ts`, import your JoinMap, call `pretty(J)` and run it using `npm print.ts` or `bun print.ts`. 
+Copy `print.ts` somewhere in your project, import your JoinMap, call `pretty(J)` and run it using [`npm print.ts`](https://nodejs.org/en/learn/typescript/run-natively) or `bun print.ts`. 
 
 This will give you a structured JSON output for better visibility. The above JoinMap example looks like this:
 ```json
@@ -243,7 +246,7 @@ React.createRoot(document.getElementById('root')!).render(
 Any joins with `{log: true}` will overwrite this setting.
 
 You can also give a function to `joinParams.logger` that will be called whenever useJoin sends to or receives from the Control Processor.
-This custom function is given an object, as described in the `JoinParams["logger"]` type.
+This custom function is given an object, as described in the `LogFunction` type.
 
 If you return a string, it will be put into a `console.log`. If you return nothing, we presume you want to handle your own logging.
 
@@ -271,7 +274,6 @@ through the `<JoinParamsProvider>`, the values will persist when the component u
 ### Debugging
 
 You can call `window.getJoin("boolean", 1)` to get the current state of boolean join 1, as your touchpanel sees it.
-
 
 ### Unsupported
 
