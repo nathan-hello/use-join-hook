@@ -103,9 +103,9 @@ useJoin takes in an object of type `PUseJoin`
     resetAfterMs?: number;
   };
   /**
-   * Overwrites GlobalParams.logger. Set this if you have logging enabled/disabled globally
+   * Overwrites JoinParams.logger. Set this if you have logging enabled/disabled globally
    * but you want to change that for just this join.
-   * This does not support passing LogFunction like GlobalParams.logger does.
+   * This does not support passing LogFunction like JoinParams.logger does.
    */
   log?: boolean;
 }
