@@ -5,16 +5,19 @@ import type { JoinMap, PUseJoin, SignalMap } from "@/types.js";
 // better manage your joins in SIMPL. Copy this file and run it locally using npm or bun.
 // Import your JoinMap and call `pretty(joinMap)` and in stdout you will get a better
 // formatted version of your joinMap, organized by the structure of your JoinMap, by type,
-// and sorted by the parsed join number.
+// and sorted by the join number with its offset.
 
 // Collect returns an array of objects that correspond with the placement within the JoinMap
 // I.e. `{Audio: { Control: {...usejoin argument}` will give you a key of "Audio.Control".
-// You can customize the printing however you'd like with that. Maybe you want to just sort
-// by the options.key value if it exists.
+// You can customize the printing however you'd like with that.
 
 // You're not able to import this and run from the npm package because doing so would mean
 // the npm/deno/bun would import the rest of index.ts, and because this is a React hook
 // library, the server runtimes will throw.
+
+// Because this is a .ts file, it's easier to run inline with bun
+// Example:
+// bun print.ts > joins.json
 
 // Put your JoinMap here!
 // import {J} from "./joins.ts"
@@ -35,7 +38,7 @@ function pretty(joinMap: JoinMap) {
       .map(
         (b) =>
           `    ${JSON.stringify({
-            [b.value.key ?? b.key]: {
+            [b.key]: {
               join: getJoin(b.value),
               effects: b.value.effects,
               dir: b.value.dir,
@@ -138,10 +141,21 @@ function getJoin(options: PUseJoin): string {
 function sort(a: BoxedJoin, b: BoxedJoin): number {
   const x = Number(getJoin(a.value));
   const y = Number(getJoin(b.value));
-  // Float string joins to the top.
-  if (!x || !y) {
+  const xIsNaN = Number.isNaN(x);
+  const yIsNaN = Number.isNaN(y);
+
+  if (xIsNaN && yIsNaN) {
+    // Both are NaN, don't move them
+    return 0;
+  }
+  if (xIsNaN) {
+    // x is NaN, move a to the top
     return -1;
   }
-
+  if (yIsNaN) {
+    // y is NaN, move b to the top
+    return 1;
+  }
+  // Both are numbers, sort numerically
   return x - y;
 }

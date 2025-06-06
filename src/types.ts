@@ -1,4 +1,5 @@
 import { _MockCrComLib } from "@/mock/store.js";
+import { ExtractJoinsFromJoinMapOfType } from "@/mock/types.js";
 
 export type PUseJoin<
   T extends keyof SignalMap = keyof SignalMap,
@@ -28,7 +29,8 @@ export type PUseJoin<
    * Offset is a tool for composition. Its value is added to join numbers (not strings).
    * If of type `number`, then the offset will apply to all join types equally.
    *
-   * `{type: "string", join: 5, offset: 50}`, the real join number subscribed to will be `55`.
+   * `{type: "string", join: 5, offset: 50}`, will result in the join number being `55`.
+   *
    * `{type: "boolean", join: {start: 10, end: 15}, offset: {boolean: 12}}` will result in the
    * array being `[22, 23, 24, 25, 26, 27]`
    *
@@ -59,15 +61,15 @@ export type PUseJoin<
     resetAfterMs?: number;
   };
   /**
-   * Overwrites GlobalParams.logger. Set this if you have logging enabled/disabled globally
+   * Overwrites JoinParams.logger. Set this if you have logging enabled/disabled globally
    * but you want to change that for just this join.
-   * This does not support passing LogFunction like GlobalParams.logger does.
+   * This does not support passing LogFunction like JoinParams.logger does.
    */
   log?: boolean;
 };
 
 // Apparently the generics in State and Publisher aren't enough so we have to
-// contrain the type manually, even though the "output" is syntactically the same.
+// contrain the type manually, even though the "output" of [State<T, K>, Publisher<T, K>] is syntactically the same.
 export type RUseJoin<
   T extends keyof SignalMap,
   K extends SingleJoin | MultiJoin,
@@ -107,15 +109,15 @@ export type Publisher<
     : never;
 
 export type LogFunction<
-  T extends keyof SignalMap = any,
-  K extends SingleJoin | MultiJoin = any,
+  T extends keyof SignalMap = keyof SignalMap,
+  K extends SingleJoin | MultiJoin = SingleJoin | MultiJoin,
 > = (
   args: {
     options: PUseJoin<T, K>;
     join: string;
     direction: "sent" | "recieved";
     value: SignalMap[T];
-  } & (K extends MultiJoin ? { index: number } : {}),
+  } & (K extends MultiJoin ? { index: number } : { index?: never }),
 ) => string | void;
 
 /**
@@ -170,3 +172,101 @@ export type MockLogicWave<T extends keyof SignalMap = keyof SignalMap> = (
     value: SignalMap[G],
   ) => void,
 ) => SignalMap[T];
+
+/**
+ * This global object affects how all useJoin's behave, and allows you to set up a mock Control System
+ * for simulating your SIMPL program in dev. We recommend keeping the mocks as barebones as possible to
+ * get your UI alive and flowing without having to actually program your entire SIMPL program twice.
+ *
+ * To use this, pass it into a JoinParamsProvider
+ *
+ * ```ts
+ * import { JoinParamsProvider } from 'use-join';
+ *
+ * const joinParams: JoinParams = {
+ *   logger: false,
+ * }
+ *
+ * React.createRoot(document.getElementById('root')!).render(
+ *   <StrictMode>
+ *     <JoinParamsProvider params={joinParams}>
+ *       <App />
+ *     </JoinParamsProvider>
+ *   </StrictMode>,
+ * );
+ * ```
+ *
+ */
+export type JoinParams<J extends JoinMap = any> = {
+  MockControlSystem?: {
+    /**
+     * Give your JoinMap so the mock control system can keep state between React renders.
+     * This is only necessary if you are actually using the Mock Control System and logicWaves.
+     */
+    JoinMap: J;
+    /**
+     * A fully featured mock control system.
+     *
+     * Compose a series of transformations or mutations that should happen on every publish.
+     *
+     * For example, if you wanted to invert the incoming boolean on join 1 like a NOT gate in a SIMPL program,
+     * you would give the following:
+     * ```ts
+     * logicWaves: {
+     *  boolean: {
+     *    "1": {
+     *      logicWave: (value, getJoin, publishJoin) {
+     *        return !value
+     *      }
+     *    }
+     *  }
+     * }
+     * ```
+     *
+     * Each logicWave function is given three parameters:
+     *   - The value that was originally published
+     *   - A function for getting the current state of a another join
+     *   - A function for publishing a new state to another join
+     */
+    logicWaves: {
+      [T in keyof SignalMap]?: {
+        [key in ExtractJoinsFromJoinMapOfType<J, T>]?: {
+          logicWave?: MockLogicWave<T>;
+          initialValue?: SignalMap[T];
+        };
+      };
+    };
+  };
+
+  /**
+   * `true | undefined` uses default logger for every send and recieve over the join number
+   * `false` disables logging entirely, except for joins that have specifically set `log: true`
+   *
+   * If a function, you will be able to implement your own logging function.
+   *  - The return goes into a console.log().
+   *  - You can return nothing if you want to handle logging yourself.
+   *  - The function is given the following object:
+   * ```ts
+   *  {
+   *    // original options object of the join
+   *    options: PUseJoin;
+   *    // rendered join string for the specific join. only different if options.join is a MultiJoin
+   *    join: string;
+   *    // We log on both `send`s to the Control Processor and `recieve`s from the Control Processor
+   *    direction: "sent" | "recieved";
+   *    // The value sent or recieved.
+   *    value: boolean | number | string;
+   *    // If MultiJoin, then the index of the join array. For example, if options.join is `[12, 14]`,
+   *    // and the sent/recieved value was over join 14, then index will be `1`.
+   *    index?: number;
+   *  }
+   * ```
+   */
+  logger?: boolean | LogFunction;
+  flags?: {
+    /**
+     * Coming soon.
+     */
+    EXPERIMENTAL_CrComLibMini?: boolean;
+  };
+};

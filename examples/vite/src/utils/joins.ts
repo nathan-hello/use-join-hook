@@ -1,4 +1,4 @@
-import { JoinMap, MockLogicWave, JoinParams } from "use-join";
+import { JoinMap, MockLogicWave, JoinParams, LogFunction } from "use-join";
 
 export const J = {
   Audio: {
