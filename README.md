@@ -228,7 +228,7 @@ By default, each send to and receive from a join is put into a `console.log` wit
 If you want to disable this feature entirely, use the context provided for global parameters.
 
 ```ts
-import { JoinParamsProvider } from 'use-join';
+import { JoinParamsProvider, type JoinParams } from 'use-join';
 
 const joinParams: JoinParams = {
   logger: false,
