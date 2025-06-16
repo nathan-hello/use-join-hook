@@ -1,5 +1,4 @@
 import { _MockCrComLib } from "@/mock/store.js";
-import { ExtractJoinsFromJoinMapOfType } from "@/mock/types.js";
 
 export type PUseJoin<
   T extends keyof SignalMap = keyof SignalMap,
@@ -227,10 +226,12 @@ export type JoinParams<J extends JoinMap = any> = {
      *   - The value that was originally published
      *   - A function for getting the current state of a another join
      *   - A function for publishing a new state to another join
+     *
+     * Note: Because of Typescript limitations, the key of each logicWave cannot be typesafe. You have to manage these joins the same way you do in SIMPL.
      */
     logicWaves: {
       [T in keyof SignalMap]?: {
-        [key in ExtractJoinsFromJoinMapOfType<J, T>]?: {
+        [x: string]: {
           logicWave?: MockLogicWave<T>;
           initialValue?: SignalMap[T];
         };
