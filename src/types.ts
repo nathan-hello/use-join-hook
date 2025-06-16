@@ -1,6 +1,5 @@
 import type { _MockCrComLib } from "@/mock/store.js";
 import { createMockCrComLib } from "@/mock/store.js";
-import { JoinMapKeysToStringUnion } from "@/mock/types.js";
 
 export type PUseJoin<
   T extends keyof SignalMap = keyof SignalMap,
@@ -276,3 +275,44 @@ export type JoinParams<J extends JoinMap = any> = {
    */
   MockCrComLib?: ReturnType<typeof createMockCrComLib<J>>;
 };
+
+type JoinMapKeysToStringUnion<
+  J,
+  T extends string,
+  Prefix extends string = "",
+> = {
+  // Is this key:value a key and a PUseJoin of type T?
+  [K in keyof J]: J[K] extends { type: T }
+    ? // If Prefix is empty (as in, it is the first path)
+      Prefix extends ""
+      ? // ... add full path to union
+        K & string
+      : // ... otherwise, add full path + all the prefix paths with a dot
+        `${Prefix}.${K & string}`
+    : // If not a leaf node, recurse!
+      // Also, check if object because otherwise we add type string | number, etc from PUseJoin to the type. Not good!
+      J[K] extends Array<any>
+      ? JoinMapKeysToStringUnion<
+          // Dive one key deeper
+          J[K],
+          // Keep the type
+          T,
+          // Add the current key to the prefix
+          Prefix extends "" ? K & string : `${Prefix}[${K & string}]`
+        >
+      : J[K] extends object
+        ? JoinMapKeysToStringUnion<
+            // Dive one key deeper
+            J[K],
+            // Keep the type
+            T,
+            // Add the current key to the prefix
+            Prefix extends "" ? K & string : `${Prefix}.${K & string}`
+          >
+        : // This never tells typescript that J is always an object, so when we go to [keyof J], it knows to turn the object into a string union.
+          never;
+  // [keyof J] turns the object created by the recursion into a string union
+  // Not quite sure what the object before this looks like, but indexing into it created the union
+}[keyof J];
+
+export type { JoinMapKeysToStringUnion };

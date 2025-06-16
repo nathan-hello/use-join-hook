@@ -1,8 +1,7 @@
 import { createContext, useContext, useMemo } from "react";
-import type { JoinMap, JoinParams, PUseJoin, SignalMap } from "@/types.js";
+import type { JoinMap, JoinParams, PUseJoin, SignalMap, JoinMapKeysToStringUnion } from "@/types.js";
 import { CrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import { createMockCrComLib, _MockCrComLib } from "@/mock/store.js";
-import { JoinMapKeysToStringUnion } from "@/mock/types.js";
 
 type JoinParamsContextValue = {
   logger?: boolean | ((args: any) => string | void);

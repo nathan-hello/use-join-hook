@@ -1,5 +1,9 @@
-import { MockLogicWave, SignalMap, JoinMap } from "@/types.js";
-import { JoinMapKeysToStringUnion } from "./types.js";
+import {
+  MockLogicWave,
+  SignalMap,
+  JoinMap,
+  JoinMapKeysToStringUnion,
+} from "@/types.js";
 
 export type CrComLibInterface = {
   subscribeState<T extends keyof SignalMap>(
