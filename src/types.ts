@@ -1,5 +1,6 @@
-import { _MockCrComLib } from "@/mock/store.js";
-import { ExtractJoinsFromJoinMapOfType } from "@/mock/types.js";
+import type { _MockCrComLib } from "@/mock/store.js";
+import { createMockCrComLib } from "@/mock/store.js";
+import { JoinMapKeysToStringUnion } from "@/mock/types.js";
 
 export type PUseJoin<
   T extends keyof SignalMap = keyof SignalMap,
@@ -160,15 +161,15 @@ type JoinLeaf<K extends SingleJoin | MultiJoin> =
   | PUseJoin<"number", K>
   | PUseJoin<"string", K>;
 
-export type MockLogicWave<T extends keyof SignalMap = keyof SignalMap> = (
+export type MockLogicWave<J, T extends keyof SignalMap = keyof SignalMap> = (
   value: SignalMap[T],
   getJoin: <G extends keyof SignalMap>(
     type: G,
-    join: number | string,
+    join: JoinMapKeysToStringUnion<J, G>,
   ) => SignalMap[G],
   pubJoin: <G extends keyof SignalMap>(
     type: G,
-    join: string | number,
+    join: JoinMapKeysToStringUnion<J, G>,
     value: SignalMap[G],
   ) => void,
 ) => SignalMap[T];
@@ -209,12 +210,12 @@ export type JoinParams<J extends JoinMap = any> = {
      *
      * Compose a series of transformations or mutations that should happen on every publish.
      *
-     * For example, if you wanted to invert the incoming boolean on join 1 like a NOT gate in a SIMPL program,
-     * you would give the following:
+     * For example, if you wanted to invert the incoming boolean on join Audio.Control.Mute
+     * like a Toggle in a SIMPL program, you would give the following:
      * ```ts
      * logicWaves: {
      *  boolean: {
-     *    "1": {
+     *    "Audio.Control.Mute": {
      *      logicWave: (value, getJoin, publishJoin) {
      *        return !value
      *      }
@@ -230,8 +231,8 @@ export type JoinParams<J extends JoinMap = any> = {
      */
     logicWaves: {
       [T in keyof SignalMap]?: {
-        [key in ExtractJoinsFromJoinMapOfType<J, T>]?: {
-          logicWave?: MockLogicWave<T>;
+        [key in JoinMapKeysToStringUnion<J, T>]?: {
+          logicWave?: MockLogicWave<J, T>;
           initialValue?: SignalMap[T];
         };
       };
@@ -269,4 +270,9 @@ export type JoinParams<J extends JoinMap = any> = {
      */
     EXPERIMENTAL_CrComLibMini?: boolean;
   };
+  /**
+   * The MockCrComLib instance created from your JoinMap.
+   * This is only available when MockControlSystem is provided and not running on a Crestron device.
+   */
+  MockCrComLib?: ReturnType<typeof createMockCrComLib<J>>;
 };

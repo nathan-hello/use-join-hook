@@ -1,4 +1,4 @@
-import { JoinMap, MockLogicWave, JoinParams, LogFunction } from "use-join";
+import { JoinMap, MockLogicWave, JoinParams } from "use-join";
 
 export const J = {
   Audio: {
@@ -10,10 +10,15 @@ export const J = {
       InUse: { join: 2, type: "number" },
     },
   },
-  ManyStrings: { type: "string", join: { start: 1, end: 4 } },
+  ManyStrings: [
+    { type: "string", join: 1 },
+    { type: "string", join: 2 },
+    { type: "string", join: 3 },
+    { type: "string", join: 4 },
+  ],
 } as const satisfies JoinMap;
 
-const LogicWaveReverseString: MockLogicWave<"string"> = (v, get, pub) => {
+const LogicWaveReverseString: MockLogicWave<any, "string"> = (v, get, pub) => {
   const asdf = v.split("").reverse().join("");
   return asdf;
 };
@@ -23,23 +28,23 @@ export const joinParams: JoinParams<typeof J> = {
     JoinMap: J,
     logicWaves: {
       boolean: {
-        "1": {
+        "Audio.Control.Mute": {
           // This mocks a SIMPL "Toggle" block.
           // Publishing `true` clocks the output, `false` does nothing.
           logicWave: (v, get, pub) => {
             if (!v) {
-              return get("boolean", 1);
+              return get("boolean", "Audio.Control.Mute");
             }
-            return !get("boolean", 1);
+            return !get("boolean", "Audio.Control.Mute");
           },
         },
       },
       number: {
-        "2": {
+        "Audio.Control.Level": {
           // We reset Level to `0` because we don't have a way of maintaining
           // arbitrary values between logicWaves that weren't previously defined as joins.
           logicWave: (v, get, pub) => {
-            pub("number", 1, 0);
+            pub("number", "Audio.Control.Level", 0);
 
             return v;
           },
@@ -48,19 +53,19 @@ export const joinParams: JoinParams<typeof J> = {
       },
       // Just for fun. Also notice how we can reuse mock functions instead of inlining them.
       string: {
-        "1": {
+        "ManyStrings.0": {
           initialValue: "tsrif",
           logicWave: LogicWaveReverseString,
         },
-        "2": {
+        "ManyStrings[1]": {
           initialValue: "dnoces",
           logicWave: LogicWaveReverseString,
         },
-        "3": {
+        "ManyStrings[2]": {
           initialValue: "driht",
           logicWave: LogicWaveReverseString,
         },
-        "4": {
+        "ManyStrings[3]": {
           initialValue: "htruof",
           logicWave: LogicWaveReverseString,
         },

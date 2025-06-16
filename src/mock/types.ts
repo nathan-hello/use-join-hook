@@ -1,4 +1,4 @@
-import { SignalMap } from "@/types.js";
+import { SignalMap, SingleJoin, MultiJoin } from "@/types.js";
 
 type EnumerateInclusive<
   N extends number,
@@ -26,13 +26,44 @@ type JoinValueToStringUnion<J> = J extends string
         ? JoinValueToStringUnion<U>
         : never;
 
-export type ExtractJoinsFromJoinMapOfType<
+export type JoinMapKeysToStringUnion<
   J,
-  T extends keyof SignalMap,
-> = J extends readonly (infer U)[]
-  ? ExtractJoinsFromJoinMapOfType<U, T>
-  : J extends object
-    ? J extends { type: T; join: infer K }
-      ? JoinValueToStringUnion<K>
-      : { [P in keyof J]: ExtractJoinsFromJoinMapOfType<J[P], T> }[keyof J]
-    : never;
+  T extends string,
+  JoinType extends SingleJoin | MultiJoin | never = never,
+  Prefix extends string = "",
+> = {
+  [K in keyof J]: J[K] extends { type: T; join: JoinType }
+    ? Prefix extends ""
+      ? JoinType extends SingleJoin
+        ? K & string
+        : JoinType extends MultiJoin
+          ? JoinType extends (infer U)[]
+            ? `${K & string}[${number}]`
+            : JoinType extends {
+                  start: infer S extends number;
+                  end: infer E extends number;
+                }
+              ? RangeToStringUnion<S, E> extends infer R
+                ? R extends number
+                  ? `${K & string}[${R}]`
+                  : never
+                : never
+              : never
+          : never
+      : `${Prefix}.${K & string}`
+    : J[K] extends Array<any>
+      ? JoinMapKeysToStringUnion<
+          J[K],
+          T,
+          JoinType,
+          Prefix extends "" ? K & string : `${Prefix}[${K & string}]`
+        >
+      : J[K] extends object
+        ? JoinMapKeysToStringUnion<
+            J[K],
+            T,
+            JoinType,
+            Prefix extends "" ? K & string : `${Prefix}.${K & string}`
+          >
+        : never;
+}[keyof J];

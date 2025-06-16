@@ -16,7 +16,7 @@
         "tailwind-merge": "^3.0.1",
         "tailwindcss": "^4.0.6",
         "tailwindcss-animate": "^1.0.7",
-        "use-join": "^4.3.6",
+        "use-join": "^4.3.7",
       },
       "devDependencies": {
         "@crestron/ch5-shell-utilities-cli": "^2.11.2",
@@ -662,7 +662,7 @@
 
     "use-callback-ref": ["use-callback-ref@1.3.3", "", { "dependencies": { "tslib": "^2.0.0" }, "peerDependencies": { "@types/react": "*", "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-jQL3lRnocaFtu3V00JToYz/4QkNWswxijDaCVNZRiRTO3HQDLsdu1ZtmIUvV4yPp+rvWm5j0y0TG/S61cuijTg=="],
 
-    "use-join": ["use-join@4.3.6", "", { "dependencies": { "@pepperdash/ch5-crcomlib-lite": "^2.10.3" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" } }, "sha512-r0eCJrBtzeOmVcIqDczQEwOaQvdop9+hNfzvj6BH5hY8+bXGTiiGVxY3Np3hSrcAkkMK10QNsSfF+xiHpvb7xw=="],
+    "use-join": ["use-join@4.3.7", "", { "dependencies": { "@pepperdash/ch5-crcomlib-lite": "^2.10.3" }, "peerDependencies": { "react": "^19.0.0", "react-dom": "^19.0.0" } }, "sha512-XcqKFLDTHkWAmSaWUp574gt4hmyfgFW/ggU5h//FKqFCwgmVW0l/d8UM2EACCKwC7Of/CDRf7XO5Xlkg8k+FPg=="],
 
     "use-sidecar": ["use-sidecar@1.1.3", "", { "dependencies": { "detect-node-es": "^1.1.0", "tslib": "^2.0.0" }, "peerDependencies": { "@types/react": "*", "react": "^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^19.0.0-rc" }, "optionalPeers": ["@types/react"] }, "sha512-Fedw0aZvkhynoPYlA5WXrMCAMm+nSWdZt6lzJQ7Ok8S6Q+VsHmHpRWndVRJ8Be0ZbkfPc5LRYH+5XrzXcEeLRQ=="],
 

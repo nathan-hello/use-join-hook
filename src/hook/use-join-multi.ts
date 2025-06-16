@@ -2,11 +2,7 @@
 // To use useJoinArray, pass in `(number | string)[] | {start: number; end: number}` to options.join
 
 import { useState, useEffect, useRef } from "react";
-import {
-  _MockCrComLib,
-  CrComLibInterface,
-  MockCrComLib,
-} from "@/mock/store.js";
+import { _MockCrComLib, CrComLibInterface } from "@/mock/store.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import { MultiJoin, PUseJoin, SignalMap, RUseJoin } from "@/types.js";
 import { pubWithTimeoutMulti, useDebounceMulti } from "@/hook/effects.js";
@@ -22,12 +18,13 @@ export function useJoinMulti<T extends keyof SignalMap>(
   const [joins, initialState] = getJoin(options);
   const [state, setState] = useState<SignalMap[T][]>(initialState);
 
+  const globalParams = useJoinParamsContext();
+
+  // Use a simpler type for MockCrComLib to avoid deep instantiation
   const CrComLib =
     RealCrComLib.isCrestronTouchscreen() || RealCrComLib.isIosDevice()
       ? (RealCrComLib as CrComLibInterface)
-      : MockCrComLib;
-
-  const globalParams = useJoinParamsContext();
+      : (globalParams?.MockCrComLib as unknown as CrComLibInterface);
 
   useEffect(() => {
     const ids = joins.map((join, index) => {

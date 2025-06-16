@@ -1,9 +1,22 @@
-import { createContext, useContext } from "react";
-import type { JoinMap, JoinParams, PUseJoin } from "@/types.js";
+import { createContext, useContext, useMemo } from "react";
+import type { JoinMap, JoinParams, PUseJoin, SignalMap } from "@/types.js";
 import { CrComLib } from "@pepperdash/ch5-crcomlib-lite";
-import { MockCrComLib } from "@/mock/store.js";
+import { createMockCrComLib, _MockCrComLib } from "@/mock/store.js";
+import { JoinMapKeysToStringUnion } from "@/mock/types.js";
 
-export const JoinParamsContext = createContext<JoinParams<any> | null>(
+type JoinParamsContextValue = {
+  logger?: boolean | ((args: any) => string | void);
+  flags?: {
+    EXPERIMENTAL_CrComLibMini?: boolean;
+  };
+  MockControlSystem?: {
+    JoinMap: JoinMap;
+    logicWaves: any;
+  };
+  MockCrComLib?: _MockCrComLib<any>;
+};
+
+export const JoinParamsContext = createContext<JoinParamsContextValue | null>(
   null,
 );
 
@@ -12,91 +25,62 @@ JoinParamsContext.displayName = "JoinParamsContext";
 export const useJoinParamsContext = () => useContext(JoinParamsContext);
 
 export function JoinParamsProvider<J extends JoinMap>({ params, children }: { params: JoinParams<J>; children: React.ReactNode; }) {
-  if (!(CrComLib.isCrestronTouchscreen() || CrComLib.isIosDevice()) && params.MockControlSystem) {
+  const mockCrComLib = useMemo(() => {
+    if (!(CrComLib.isCrestronTouchscreen() || CrComLib.isIosDevice()) && params.MockControlSystem) {
+      const instance = createMockCrComLib(params.MockControlSystem.JoinMap);
 
-    const alls = collectPUseJoins(params.MockControlSystem.JoinMap);
-    alls.forEach(a => {
-      const joins = getJoin(a);
-      joins.forEach(j => {
-        MockCrComLib.registerMock(
-          a.type,
-          j,
-          (params.MockControlSystem?.logicWaves as any)?.[a.type]?.[j]?.logicWave,
-          (params.MockControlSystem?.logicWaves as any)?.[a.type]?.[j]?.initialValue);
+      // Register all joins from the JoinMap
+      function registerJoins(obj: unknown, prefix: string = '') {
+        if (!obj || typeof obj !== 'object') return;
+
+        if (Array.isArray(obj)) {
+          obj.forEach((item, index) => {
+            if (item && typeof item === 'object' && 'type' in item && 'join' in item) {
+              const join = item;
+              const key = prefix ? `${prefix}.${index}` : `${index}`;
+              instance.registerMock(
+                join.type,
+                key as JoinMapKeysToStringUnion<J, typeof join.type>,
+                (params.MockControlSystem?.logicWaves as any)?.[join.type]?.[key]?.logicWave,
+                (params.MockControlSystem?.logicWaves as any)?.[join.type]?.[key]?.initialValue
+              );
+            }
+          });
+        } else {
+          Object.entries(obj).forEach(([key, value]) => {
+            if (value && typeof value === 'object' && 'type' in value && 'join' in value) {
+              const join = value as PUseJoin;
+              const fullKey = prefix ? `${prefix}.${key}` : key;
+              instance.registerMock(
+                join.type,
+                fullKey as JoinMapKeysToStringUnion<J, typeof join.type>,
+                (params.MockControlSystem?.logicWaves as any)?.[join.type]?.[fullKey]?.logicWave,
+                (params.MockControlSystem?.logicWaves as any)?.[join.type]?.[fullKey]?.initialValue
+              );
+            } else if (value && typeof value === 'object') {
+              registerJoins(value, prefix ? `${prefix}.${key}` : key);
+            }
+          });
+        }
       }
-      );
-    });
-  }
+
+      registerJoins(params.MockControlSystem.JoinMap);
+
+      // Replace the global MockCrComLib with our type-safe instance
+      (window as any).MockCrComLib = instance;
+      return instance;
+    }
+    return undefined;
+  }, [params.MockControlSystem]);
+
+  const contextValue = useMemo(() => ({
+    ...params,
+    MockCrComLib: mockCrComLib
+  }), [params, mockCrComLib]);
+
   return (
-    <JoinParamsContext.Provider value={params}>
+    <JoinParamsContext.Provider value={contextValue}>
       {children}
     </JoinParamsContext.Provider>
   );
-}
-
-
-function collectPUseJoins(joinMap: unknown): PUseJoin[] {
-  const result: PUseJoin[] = [];
-
-  function recurse(node: unknown) {
-    if (Array.isArray(node)) {
-      node.forEach(recurse);
-    } else if (node && typeof node === "object") {
-      // Heuristic: looks like a PUseJoin if it has a "type" and "join"
-      if (
-        "type" in node &&
-        "join" in node &&
-        (node.type === "boolean" ||
-          node.type === "number" ||
-          node.type === "string")
-      ) {
-        result.push(node as PUseJoin);
-      } else {
-        // Recurse into object properties
-        Object.values(node).forEach(recurse);
-      }
-    }
-  }
-
-  recurse(joinMap);
-  return result;
-}
-
-function getJoin(options: PUseJoin): string[] {
-
-  let arr: string[] = [];
-
-  let offset = 0;
-
-  if (typeof options.offset === "number") {
-    offset = options.offset;
-  }
-  if (typeof options.offset === "object") {
-    offset = options.offset?.[options.type] ?? 0;
-  }
-
-  if (typeof options.join === "number") {
-    return [(options.join + offset).toString()];
-  }
-  if (typeof options.join === "string") {
-    return [options.join.toString()];
-  }
-
-  if ("start" in options.join) {
-    const len = options.join.end - options.join.start + 1;
-    arr = Array.from({ length: len }, (_, i) =>
-      // @ts-ignore-next-line
-      (options.join.start + i + offset).toString(),
-    );
-  } else {
-    arr = options.join.map((j) => {
-      if (typeof j === "string") {
-        return j;
-      }
-      const withOffset = j + offset;
-      return withOffset.toString();
-    });
-  }
-
-  return arr;
 }

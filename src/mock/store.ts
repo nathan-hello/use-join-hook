@@ -1,4 +1,5 @@
-import { MockLogicWave, SignalMap } from "@/types.js";
+import { MockLogicWave, SignalMap, JoinMap } from "@/types.js";
+import { JoinMapKeysToStringUnion } from "./types.js";
 
 export type CrComLibInterface = {
   subscribeState<T extends keyof SignalMap>(
@@ -18,46 +19,36 @@ export type CrComLibInterface = {
   ): void;
 };
 
-// We have the make this type have ? for the values or else typescript gets annoying
-// Also we can't use Record<keyof SignalMap, SignalMap[T]> or anything like that because where does T come from?
-interface StoreState {
+interface StoreState<J extends JoinMap> {
   values: {
     [T in keyof SignalMap]?: {
-      [join: string]: SignalMap[T];
+      [key in JoinMapKeysToStringUnion<J, T>]?: SignalMap[T];
     };
   };
   subscribers: {
     [T in keyof SignalMap]?: {
-      [join: string]: {
+      [key in JoinMapKeysToStringUnion<J, T>]?: {
         [id: string]: (value: SignalMap[T]) => void;
       };
     };
   };
   logicWaves: {
     [T in keyof SignalMap]?: {
-      [join: string]: MockLogicWave<T>;
+      [key in JoinMapKeysToStringUnion<J, T>]?: MockLogicWave<J, T>;
     };
   };
 }
 
-export class _MockCrComLib implements CrComLibInterface {
-  private store: StoreState = {
-    values: {
-      boolean: {},
-      number: {},
-      string: {},
-    },
-    subscribers: {
-      boolean: {},
-      number: {},
-      string: {},
-    },
-    logicWaves: {
-      boolean: {},
-      number: {},
-      string: {},
-    },
-  };
+export class _MockCrComLib<J extends JoinMap> implements CrComLibInterface {
+  private store: StoreState<J>;
+
+  constructor(joinMap: J) {
+    this.store = {
+      values: {},
+      subscribers: {},
+      logicWaves: {},
+    };
+  }
 
   private generateId(): string {
     return Math.random().toString(36).substring(2, 15);
@@ -66,9 +57,9 @@ export class _MockCrComLib implements CrComLibInterface {
   // Arrow function so it gets a proper closer for when we pass this function into logicWave()
   public getState = <T extends keyof SignalMap>(
     type: T,
-    join: number | string,
+    join: JoinMapKeysToStringUnion<J, T>,
   ): SignalMap[T] => {
-    const val = this.store.values?.[type]?.[join.toString()];
+    const val = this.store.values?.[type]?.[join];
     if (val === undefined) {
       return { boolean: false, number: 0, string: "" }[type];
     }
@@ -77,10 +68,9 @@ export class _MockCrComLib implements CrComLibInterface {
 
   public subscribeState<T extends keyof SignalMap>(
     type: T,
-    join: string,
+    join: JoinMapKeysToStringUnion<J, T>,
     callback: (value: SignalMap[T]) => void,
   ): string {
-    // This case is never hit but if I get rid of it, typescript complains.
     if (!this.store.subscribers[type]) {
       this.store.subscribers[type] = {};
     }
@@ -102,14 +92,10 @@ export class _MockCrComLib implements CrComLibInterface {
 
   public unsubscribeState<T extends keyof SignalMap>(
     type: T,
-    join: string,
+    join: JoinMapKeysToStringUnion<J, T>,
     id: string,
   ): void {
-    if (
-      this.store.subscribers[type] &&
-      this.store.subscribers[type][join] &&
-      this.store.subscribers[type][join][id]
-    ) {
+    if (this.store.subscribers[type]?.[join]?.[id]) {
       delete this.store.subscribers[type][join][id];
     }
   }
@@ -117,13 +103,11 @@ export class _MockCrComLib implements CrComLibInterface {
   // Arrow function so it gets a proper closer for when we pass this function into logicWave()
   public publishEvent = <T extends keyof SignalMap>(
     type: T,
-    join: string | number,
+    join: JoinMapKeysToStringUnion<J, T>,
     value: SignalMap[T],
   ): void => {
-    // Apply logicWave if exists
-    const joinStr = join.toString();
     let finalValue = value;
-    const logicWave = this.store.logicWaves[type]?.[joinStr];
+    const logicWave = this.store.logicWaves[type]?.[join];
     if (logicWave) {
       const wave = logicWave(value, this.getState, this.publishEvent);
       finalValue = wave !== undefined ? wave : this.getState(type, join);
@@ -133,22 +117,19 @@ export class _MockCrComLib implements CrComLibInterface {
     if (!this.store.values[type]) {
       this.store.values[type] = {};
     }
-    this.store.values[type][joinStr] = finalValue;
+    this.store.values[type][join] = finalValue;
 
-    // Notify subscribers
-    if (this.store.subscribers[type]?.[joinStr]) {
-      Object.values(this.store.subscribers[type][joinStr]).forEach(
-        (callback) => {
-          callback(finalValue);
-        },
-      );
+    if (this.store.subscribers[type]?.[join]) {
+      Object.values(this.store.subscribers[type][join]).forEach((callback) => {
+        callback(finalValue);
+      });
     }
   };
 
   public registerMock<T extends keyof SignalMap>(
     type: T,
-    join: string,
-    logicWave: MockLogicWave<T> | undefined,
+    join: JoinMapKeysToStringUnion<J, T>,
+    logicWave: MockLogicWave<J, T> | undefined,
     initalValue: SignalMap[T] | undefined,
   ): void {
     if (!this.store.logicWaves[type]) {
@@ -168,8 +149,8 @@ export class _MockCrComLib implements CrComLibInterface {
   }
 }
 
-export const MockCrComLib = new _MockCrComLib();
-if (window !== undefined) {
-  // @ts-ignore-next-line
-  window.MockCrComLib = MockCrComLib;
+export function createMockCrComLib<J extends JoinMap>(
+  joinMap: J,
+): _MockCrComLib<J> {
+  return new _MockCrComLib(joinMap);
 }

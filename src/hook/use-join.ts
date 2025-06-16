@@ -1,9 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  _MockCrComLib,
-  CrComLibInterface,
-  MockCrComLib,
-} from "@/mock/store.js";
+import { _MockCrComLib, CrComLibInterface } from "@/mock/store.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import { useJoinMulti } from "@/hook/use-join-multi.js";
 import { useDebounceSingle, pubWithTimeoutSingle } from "@/hook/effects.js";
@@ -14,6 +10,7 @@ import type {
   PUseJoin,
   RUseJoin,
   SingleJoin,
+  JoinMap,
 } from "@/types.js";
 import { logger } from "@/utils/log.js";
 import { useJoinParamsContext } from "@/context.js";
@@ -48,10 +45,13 @@ export function useJoin<T extends keyof SignalMap>(
 
   const globalParams = useJoinParamsContext();
 
-  const CrComLib: CrComLibInterface =
+  // Use a simpler type for MockCrComLib to avoid deep instantiation
+  const CrComLib =
     RealCrComLib.isCrestronTouchscreen() || RealCrComLib.isIosDevice()
       ? (RealCrComLib as CrComLibInterface)
-      : MockCrComLib;
+      : globalParams?.MockCrComLib !== undefined
+        ? (globalParams.MockCrComLib as unknown as CrComLibInterface)
+        : (RealCrComLib as CrComLibInterface);
 
   useEffect(() => {
     registerJoin(options.type, join, options, () => state, pubState);
