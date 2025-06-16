@@ -1,10 +1,25 @@
-import { JoinMap, MockLogicWave, JoinParams, LogFunction } from "use-join";
+import type {
+  JoinMap,
+  MockLogicWave,
+  JoinParams,
+  LogFunction,
+} from "@/types.js";
 
 export const J = {
   Audio: {
     Control: {
-      Level: { join: 1, type: "number", effects: { debounce: 5 }, offset: 100 },
-      Mute: { join: 1, type: "boolean", effects: { resetAfterMs: 100 } },
+      Level: {
+        join: 1,
+        type: "number",
+        effects: { debounce: 5 },
+        offset: { boolean: 100 },
+      },
+      Mute: {
+        join: 1000,
+        type: "boolean",
+        offset: 100,
+        effects: { resetAfterMs: 100 },
+      },
     },
     Management: {
       InUse: { join: 2, type: "number" },
@@ -23,7 +38,7 @@ export const joinParams: JoinParams<typeof J> = {
     JoinMap: J,
     logicWaves: {
       boolean: {
-        "1": {
+        "": {
           // This mocks a SIMPL "Toggle" block.
           // Publishing `true` clocks the output, `false` does nothing.
           logicWave: (v, get, pub) => {
