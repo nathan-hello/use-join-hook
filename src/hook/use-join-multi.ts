@@ -9,7 +9,7 @@ import {
 } from "@/mock/store.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import { MultiJoin, PUseJoin, SignalMap, RUseJoin } from "@/types.js";
-import { pubWithTimeoutMulti, useDebounceMulti } from "@/hook/effects.js";
+import { pubDebounceMulti, pubWithTimeoutMulti } from "@/hook/effects.js";
 import { logger } from "@/utils/log.js";
 import { useJoinParamsContext } from "@/context.js";
 import { registerJoin, unregisterJoin } from "@/utils/debug.js";
@@ -21,6 +21,8 @@ export function useJoinMulti<T extends keyof SignalMap>(
 ): RUseJoin<T, MultiJoin> {
   const [joins, initialState] = useMemo(() => getJoin(options), [options]);
   const [state, setState] = useState<SignalMap[T][]>(initialState);
+
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const globalParams = useJoinParamsContext();
 
@@ -111,8 +113,10 @@ joins array: ${JSON.stringify(joins)}
       pub = pubWithTimeoutMulti(options, realPublish);
     }
 
-    const realPublish = pub;
-    pub = useDebounceMulti(options, realPublish);
+    if (options.effects?.debounce) {
+      const realPublish = pub;
+      pub = pubDebounceMulti(options, realPublish, timeoutRef);
+    }
 
     return pub;
   }, [options, joins, state, CrComLib, globalParams?.logger]);

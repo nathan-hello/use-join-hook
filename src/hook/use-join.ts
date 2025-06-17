@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   _MockCrComLib,
   CrComLibInterface,
@@ -6,7 +6,7 @@ import {
 } from "@/mock/store.js";
 import { CrComLib as RealCrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import { useJoinMulti } from "@/hook/use-join-multi.js";
-import { useDebounceSingle, pubWithTimeoutSingle } from "@/hook/effects.js";
+import { pubWithTimeoutSingle, pubDebounceSingle } from "@/hook/effects.js";
 import { registerJoin, unregisterJoin } from "@/utils/debug.js";
 import type {
   SignalMap,
@@ -46,6 +46,7 @@ export function useJoin<T extends keyof SignalMap>(
     { boolean: false, number: 0, string: "" }[options.type],
   );
 
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const globalParams = useJoinParamsContext();
 
   const CrComLib: CrComLibInterface = useMemo(
@@ -94,8 +95,10 @@ export function useJoin<T extends keyof SignalMap>(
       pub = pubWithTimeoutSingle(options, realPublish);
     }
 
-    const realPublish = pub;
-    pub = useDebounceSingle(options, realPublish);
+    if (options?.effects?.debounce) {
+      const realPublish = pub;
+      pub = pubDebounceSingle(options, realPublish, timeoutRef);
+    }
 
     return pub;
   }, [options, state, CrComLib, globalParams?.logger]);
