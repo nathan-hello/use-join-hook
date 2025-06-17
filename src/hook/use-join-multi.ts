@@ -1,7 +1,7 @@
 // This file is exported for internal use only.
 // To use useJoinArray, pass in `(number | string)[] | {start: number; end: number}` to options.join
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   _MockCrComLib,
   CrComLibInterface,
@@ -19,15 +19,19 @@ import { registerJoin, unregisterJoin } from "@/utils/debug.js";
 export function useJoinMulti<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
 ): RUseJoin<T, MultiJoin> {
-  const [joins, initialState] = getJoin(options);
+  const [joins, initialState] = useMemo(() => getJoin(options), [options]);
   const [state, setState] = useState<SignalMap[T][]>(initialState);
 
-  const CrComLib =
-    RealCrComLib.isCrestronTouchscreen() || RealCrComLib.isIosDevice()
-      ? (RealCrComLib as CrComLibInterface)
-      : MockCrComLib;
-
   const globalParams = useJoinParamsContext();
+
+  const CrComLib: CrComLibInterface = useMemo(
+    () =>
+      globalParams?.forceDebug ||
+      (!RealCrComLib.isCrestronTouchscreen() && !RealCrComLib.isIosDevice())
+        ? MockCrComLib
+        : (RealCrComLib as CrComLibInterface),
+    [],
+  );
 
   useEffect(() => {
     const ids = joins.map((join, index) => {
@@ -71,12 +75,13 @@ export function useJoinMulti<T extends keyof SignalMap>(
     };
   }, [options.join]);
 
-  let pubState: React.Dispatch<
-    React.SetStateAction<(SignalMap[T] | undefined)[]>
-  > = (v) => {
-    const nextValue = typeof v === "function" ? v(state) : v;
-    if (nextValue.length !== joins.length) {
-      console.error(`
+  const pubState = useMemo(() => {
+    let pub: React.Dispatch<
+      React.SetStateAction<(SignalMap[T] | undefined)[]>
+    > = (v) => {
+      const nextValue = typeof v === "function" ? v(state) : v;
+      if (nextValue.length !== joins.length) {
+        console.error(`
 useJoin pubState error: 
 given array was of a different length than originally set.
 length of value given: ${nextValue.length}
@@ -84,30 +89,33 @@ length of original join array: ${joins.length}
 given value: ${JSON.stringify(nextValue)}
 joins array: ${JSON.stringify(joins)}
 `);
-      return;
-    }
-
-    nextValue.forEach((value, index) => {
-      if (value === undefined) {
         return;
       }
-      const joinStr = joins[index]!.toString();
-      logger(
-        { options, join: joinStr, value, index, direction: "sent" },
-        globalParams?.logger,
-      );
 
-      CrComLib.publishEvent(options.type, joinStr, value);
-    });
-  };
+      nextValue.forEach((value, index) => {
+        if (value === undefined) {
+          return;
+        }
+        const joinStr = joins[index]!.toString();
+        logger(
+          { options, join: joinStr, value, index, direction: "sent" },
+          globalParams?.logger,
+        );
 
-  if (options?.effects?.resetAfterMs) {
-    const realPublish = pubState;
-    pubState = pubWithTimeoutMulti(options, realPublish);
-  }
+        CrComLib.publishEvent(options.type, joinStr, value);
+      });
+    };
 
-  const realPublish = pubState;
-  pubState = useDebounceMulti(options, realPublish);
+    if (options?.effects?.resetAfterMs) {
+      const realPublish = pub;
+      pub = pubWithTimeoutMulti(options, realPublish);
+    }
+
+    const realPublish = pub;
+    pub = useDebounceMulti(options, realPublish);
+
+    return pub;
+  }, [options, joins, state, CrComLib, globalParams?.logger]);
 
   return [state, pubState];
 }

@@ -196,13 +196,13 @@ export type MockLogicWave<T extends keyof SignalMap = keyof SignalMap> = (
  * ```
  *
  */
-export type JoinParams<J extends JoinMap = any> = {
+export type JoinParams = {
   MockControlSystem?: {
     /**
      * Give your JoinMap so the mock control system can keep state between React renders.
      * This is only necessary if you are actually using the Mock Control System and logicWaves.
      */
-    JoinMap: J;
+    JoinMap: JoinMap;
     /**
      * A fully featured mock control system.
      *
@@ -227,7 +227,7 @@ export type JoinParams<J extends JoinMap = any> = {
      *   - A function for getting the current state of a another join
      *   - A function for publishing a new state to another join
      *
-     * Note: Because of Typescript limitations, the key of each logicWave cannot be typesafe. You have to manage these joins the same way you do in SIMPL.
+     * Note: Because of Typescript limitations, the key of each logicWave cannot be inferred from JoinMap. You have to manage these joins the same way you do in SIMPL.
      */
     logicWaves: {
       [T in keyof SignalMap]?: {
@@ -264,6 +264,7 @@ export type JoinParams<J extends JoinMap = any> = {
    * ```
    */
   logger?: boolean | LogFunction;
+  forceDebug?: boolean;
   flags?: {
     /**
      * Coming soon.

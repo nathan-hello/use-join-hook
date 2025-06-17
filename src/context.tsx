@@ -1,9 +1,9 @@
 import { createContext, useContext } from "react";
-import type { JoinMap, JoinParams, PUseJoin } from "@/types.js";
+import type { JoinParams, PUseJoin } from "@/types.js";
 import { CrComLib } from "@pepperdash/ch5-crcomlib-lite";
 import { MockCrComLib } from "@/mock/store.js";
 
-export const JoinParamsContext = createContext<JoinParams<any> | null>(
+export const JoinParamsContext = createContext<JoinParams | null>(
   null,
 );
 
@@ -11,21 +11,23 @@ JoinParamsContext.displayName = "JoinParamsContext";
 
 export const useJoinParamsContext = () => useContext(JoinParamsContext);
 
-export function JoinParamsProvider<J extends JoinMap>({ params, children }: { params: JoinParams<J>; children: React.ReactNode; }) {
-  if (!(CrComLib.isCrestronTouchscreen() || CrComLib.isIosDevice()) && params.MockControlSystem) {
+export function JoinParamsProvider({ params, children }: { params: JoinParams; children: React.ReactNode; }) {
 
-    const alls = collectPUseJoins(params.MockControlSystem.JoinMap);
-    alls.forEach(a => {
-      const joins = getJoin(a);
-      joins.forEach(j => {
-        MockCrComLib.registerMock(
-          a.type,
-          j,
-          (params.MockControlSystem?.logicWaves as any)?.[a.type]?.[j]?.logicWave,
-          (params.MockControlSystem?.logicWaves as any)?.[a.type]?.[j]?.initialValue);
-      }
-      );
-    });
+  if (params.forceDebug || (!CrComLib.isCrestronTouchscreen() && !CrComLib.isIosDevice())) {
+    if (params.MockControlSystem) {
+      const alls = collectPUseJoins(params.MockControlSystem.JoinMap);
+      alls.forEach(a => {
+        const joins = getJoin(a);
+        joins.forEach(j => {
+          MockCrComLib.registerMock(
+            a.type,
+            j,
+            (params.MockControlSystem?.logicWaves as any)?.[a.type]?.[j]?.logicWave,
+            (params.MockControlSystem?.logicWaves as any)?.[a.type]?.[j]?.initialValue);
+        }
+        );
+      });
+    }
   }
   return (
     <JoinParamsContext.Provider value={params}>

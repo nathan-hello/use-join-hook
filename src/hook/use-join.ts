@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   _MockCrComLib,
   CrComLibInterface,
@@ -40,7 +40,7 @@ export function useJoin<T extends keyof SignalMap>(
     return useJoinMulti(options);
   }
 
-  const join = getJoin(options);
+  const join = useMemo(() => getJoin(options), [options]);
 
   const [state, setState] = useState<SignalMap[T]>(
     { boolean: false, number: 0, string: "" }[options.type],
@@ -48,10 +48,14 @@ export function useJoin<T extends keyof SignalMap>(
 
   const globalParams = useJoinParamsContext();
 
-  const CrComLib: CrComLibInterface =
-    RealCrComLib.isCrestronTouchscreen() || RealCrComLib.isIosDevice()
-      ? (RealCrComLib as CrComLibInterface)
-      : MockCrComLib;
+  const CrComLib: CrComLibInterface = useMemo(
+    () =>
+      globalParams?.forceDebug ||
+      (!RealCrComLib.isCrestronTouchscreen() && !RealCrComLib.isIosDevice())
+        ? MockCrComLib
+        : (RealCrComLib as CrComLibInterface),
+    [globalParams?.forceDebug],
+  );
 
   useEffect(() => {
     registerJoin(options.type, join, options, () => state, pubState);
@@ -74,23 +78,27 @@ export function useJoin<T extends keyof SignalMap>(
     };
   }, []);
 
-  let pubState: React.Dispatch<React.SetStateAction<SignalMap[T]>> = (v) => {
-    const nextValue = typeof v === "function" ? v(state) : v;
+  const pubState = useMemo(() => {
+    let pub: React.Dispatch<React.SetStateAction<SignalMap[T]>> = (v) => {
+      const nextValue = typeof v === "function" ? v(state) : v;
 
-    logger(
-      { options, join, value: nextValue, direction: "sent" },
-      globalParams?.logger,
-    );
-    CrComLib.publishEvent(options.type, join, nextValue);
-  };
+      logger(
+        { options, join, value: nextValue, direction: "sent" },
+        globalParams?.logger,
+      );
+      CrComLib.publishEvent(options.type, join, nextValue);
+    };
 
-  if (options?.effects?.resetAfterMs) {
-    const realPublish = pubState;
-    pubState = pubWithTimeoutSingle(options, realPublish);
-  }
+    if (options?.effects?.resetAfterMs) {
+      const realPublish = pub;
+      pub = pubWithTimeoutSingle(options, realPublish);
+    }
 
-  const realPublish = pubState;
-  pubState = useDebounceSingle(options, realPublish);
+    const realPublish = pub;
+    pub = useDebounceSingle(options, realPublish);
+
+    return pub;
+  }, [options, state, CrComLib, globalParams?.logger]);
 
   return [state, pubState];
 }
