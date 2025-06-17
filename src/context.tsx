@@ -13,7 +13,7 @@ export const useJoinParamsContext = () => useContext(JoinParamsContext);
 
 export function JoinParamsProvider({ params, children }: { params: JoinParams; children: React.ReactNode; }) {
 
-  if (params.forceDebug || (!CrComLib.isCrestronTouchscreen() && !CrComLib.isIosDevice())) {
+  if (params.forceMock || (!CrComLib.isCrestronTouchscreen() && !CrComLib.isIosDevice())) {
     if (params.MockControlSystem) {
       const alls = collectPUseJoins(params.MockControlSystem.JoinMap);
       alls.forEach(a => {

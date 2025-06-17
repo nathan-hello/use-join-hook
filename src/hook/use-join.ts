@@ -51,11 +51,11 @@ export function useJoin<T extends keyof SignalMap>(
 
   const CrComLib: CrComLibInterface = useMemo(
     () =>
-      globalParams?.forceDebug ||
+      globalParams?.forceMock ||
       (!RealCrComLib.isCrestronTouchscreen() && !RealCrComLib.isIosDevice())
         ? MockCrComLib
         : (RealCrComLib as CrComLibInterface),
-    [globalParams?.forceDebug],
+    [globalParams?.forceMock],
   );
 
   useEffect(() => {

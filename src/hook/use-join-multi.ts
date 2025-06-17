@@ -28,11 +28,11 @@ export function useJoinMulti<T extends keyof SignalMap>(
 
   const CrComLib: CrComLibInterface = useMemo(
     () =>
-      globalParams?.forceDebug ||
+      globalParams?.forceMock ||
       (!RealCrComLib.isCrestronTouchscreen() && !RealCrComLib.isIosDevice())
         ? MockCrComLib
         : (RealCrComLib as CrComLibInterface),
-    [],
+    [globalParams?.forceMock],
   );
 
   useEffect(() => {

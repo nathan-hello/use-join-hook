@@ -264,7 +264,7 @@ export type JoinParams = {
    * ```
    */
   logger?: boolean | LogFunction;
-  forceDebug?: boolean;
+  forceMock?: boolean;
   flags?: {
     /**
      * Coming soon.
