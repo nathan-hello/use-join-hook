@@ -18,7 +18,7 @@ const LogicWaveReverseString: MockLogicWave<"string"> = (v, get, pub) => {
   return asdf;
 };
 
-export const joinParams: JoinParams<typeof J> = {
+export const joinParams: JoinParams = {
   MockControlSystem: {
     JoinMap: J,
     logicWaves: {
