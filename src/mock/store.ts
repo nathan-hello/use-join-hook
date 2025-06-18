@@ -16,6 +16,7 @@ export type CrComLibInterface = {
     join: string,
     value: SignalMap[T],
   ): void;
+  getState<T extends keyof SignalMap>(type: T, join: string): SignalMap[T];
 };
 
 // We have the make this type have ? for the values or else typescript gets annoying

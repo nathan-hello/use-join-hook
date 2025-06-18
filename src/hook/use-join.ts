@@ -36,17 +36,12 @@ export function useJoin<T extends keyof SignalMap>(
 export function useJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin> | PUseJoin<T, MultiJoin>,
 ): RUseJoin<T, SingleJoin | MultiJoin> {
+  // Technically this violates the Rules of React because between renders,
+  // if the join is a SingleJoin, then a MultiJoin or vice-versa, React will throw an error.
+  // But why would you do that??
   if (joinIsArray(options)) {
     return useJoinMulti(options);
   }
-
-  const join = useMemo(() => getJoin(options), [options]);
-
-  const [state, setState] = useState<SignalMap[T]>(
-    { boolean: false, number: 0, string: "" }[options.type],
-  );
-
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const globalParams = useJoinParamsContext();
 
   const CrComLib: CrComLibInterface = useMemo(
@@ -57,6 +52,14 @@ export function useJoin<T extends keyof SignalMap>(
         : (RealCrComLib as CrComLibInterface),
     [globalParams?.forceMock],
   );
+
+  const [join, initialValue] = useMemo(
+    () => getJoin(options, CrComLib.getState),
+    [options],
+  );
+
+  const [state, setState] = useState<SignalMap[T]>(initialValue);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     registerJoin(options.type, join, options, () => state, pubState);
@@ -108,13 +111,16 @@ export function useJoin<T extends keyof SignalMap>(
 
 function getJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin>,
-): string {
+  getState: CrComLibInterface["getState"],
+): [string, SignalMap[T]] {
   let join = options.join;
   if (typeof join === "string") {
-    return join;
+    const val = getState(options.type, join);
+    return [join, val];
   }
   if (options.offset === undefined) {
-    return join.toString();
+    const val = getState(options.type, join.toString());
+    return [join.toString(), val];
   }
 
   if (typeof options.offset === "number") {
@@ -125,5 +131,6 @@ function getJoin<T extends keyof SignalMap>(
       join = offset + join;
     }
   }
-  return join.toString();
+  const val = getState(options.type, join.toString());
+  return [join.toString(), val];
 }

@@ -19,11 +19,6 @@ import { registerJoin, unregisterJoin } from "@/utils/debug.js";
 export function useJoinMulti<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
 ): RUseJoin<T, MultiJoin> {
-  const [joins, initialState] = useMemo(() => getJoin(options), [options]);
-  const [state, setState] = useState<SignalMap[T][]>(initialState);
-
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const globalParams = useJoinParamsContext();
 
   const CrComLib: CrComLibInterface = useMemo(
@@ -34,6 +29,14 @@ export function useJoinMulti<T extends keyof SignalMap>(
         : (RealCrComLib as CrComLibInterface),
     [globalParams?.forceMock],
   );
+
+  const [joins, initialState] = useMemo(
+    () => getJoin(options, CrComLib.getState),
+    [options],
+  );
+  const [state, setState] = useState<SignalMap[T][]>(initialState);
+
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const ids = joins.map((join, index) => {
@@ -126,9 +129,10 @@ joins array: ${JSON.stringify(joins)}
 
 function getJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
+  getState: CrComLibInterface["getState"],
 ): [string[], SignalMap[T][]] {
-  let join = options.join;
-  let arr: string[] = [];
+  let joins: string[] = [];
+  let initialState: SignalMap[T][] = [];
 
   let offset = 0;
 
@@ -139,30 +143,25 @@ function getJoin<T extends keyof SignalMap>(
     offset = options.offset[options.type] ?? 0;
   }
 
-  if ("start" in join) {
-    const len = join.end - join.start + 1;
-    arr = Array.from({ length: len }, (_, i) =>
-      (join.start + i + offset).toString(),
-    );
-  } else {
-    arr = join.map((j) => {
+  if (Array.isArray(options.join)) {
+    joins = options.join.map((j) => {
       if (typeof j === "string") {
         return j;
       }
-      const withOffset = j + offset;
-      return withOffset.toString();
+      if (typeof j === "number") {
+        return (j + offset).toString();
+      }
+      throw new Error("useJoinMulti: join type was not a string or number");
     });
+    initialState = joins.map((join) => getState(options.type, join));
+    return [joins, initialState];
   }
 
-  const ini: SignalMap[T][] = Array.from(
-    { length: arr.length },
-    () =>
-      ({
-        boolean: false,
-        number: 0,
-        string: "",
-      })[options.type],
+  const joinRange = options.join;
+  joins = Array.from({ length: joinRange.end - joinRange.start + 1 }, (_, i) =>
+    (joinRange.start + i + offset).toString(),
   );
+  initialState = joins.map((join) => getState(options.type, join));
 
-  return [arr, ini];
+  return [joins, initialState];
 }
