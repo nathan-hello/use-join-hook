@@ -15,7 +15,13 @@ export const J = {
         offset: { boolean: 100 },
       },
       Mute: {
-        join: 1000,
+        join: "asdf",
+        type: "boolean",
+        offset: 100,
+        effects: { resetAfterMs: 100 },
+      },
+      Mute2: {
+        join: 1021,
         type: "boolean",
         offset: 100,
         effects: { resetAfterMs: 100 },
@@ -38,7 +44,7 @@ export const joinParams: JoinParams<typeof J> = {
     JoinMap: J,
     logicWaves: {
       boolean: {
-        "": {
+        "102": {
           // This mocks a SIMPL "Toggle" block.
           // Publishing `true` clocks the output, `false` does nothing.
           logicWave: (v, get, pub) => {
@@ -50,7 +56,7 @@ export const joinParams: JoinParams<typeof J> = {
         },
       },
       number: {
-        "2": {
+        "1": {
           // We reset Level to `0` because we don't have a way of maintaining
           // arbitrary values between logicWaves that weren't previously defined as joins.
           logicWave: (v, get, pub) => {
