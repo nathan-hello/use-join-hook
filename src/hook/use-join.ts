@@ -113,8 +113,10 @@ function getJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin>,
   getState: CrComLibInterface["getState"],
 ): [string, SignalMap[T]] {
+  const defaultValue = { boolean: false, number: 0, string: "" }[options.type];
+
   if (typeof options.join === "string") {
-    const val = getState(options.type, options.join);
+    const val = getState(options.type, options.join) ?? defaultValue;
     return [options.join, val];
   }
 
@@ -129,6 +131,6 @@ function getJoin<T extends keyof SignalMap>(
 
   const joinWithOffset = options.join + offset;
 
-  const val = getState(options.type, joinWithOffset.toString());
+  const val = getState(options.type, joinWithOffset.toString()) ?? defaultValue;
   return [joinWithOffset.toString(), val];
 }

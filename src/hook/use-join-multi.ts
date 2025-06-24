@@ -133,6 +133,7 @@ function getJoin<T extends keyof SignalMap>(
 ): [string[], SignalMap[T][]] {
   let joins: string[] = [];
   let initialState: SignalMap[T][] = [];
+  const defaultValue = { boolean: false, number: 0, string: "" }[options.type];
 
   let offset = 0;
 
@@ -153,7 +154,9 @@ function getJoin<T extends keyof SignalMap>(
       }
       throw new Error("useJoinMulti: join type was not a string or number");
     });
-    initialState = joins.map((join) => getState(options.type, join));
+    initialState = joins.map(
+      (join) => getState(options.type, join) ?? defaultValue,
+    );
     return [joins, initialState];
   }
 
@@ -161,7 +164,9 @@ function getJoin<T extends keyof SignalMap>(
   joins = Array.from({ length: joinRange.end - joinRange.start + 1 }, (_, i) =>
     (joinRange.start + i + offset).toString(),
   );
-  initialState = joins.map((join) => getState(options.type, join));
+  initialState = joins.map(
+    (join) => getState(options.type, join) ?? defaultValue,
+  );
 
   return [joins, initialState];
 }
