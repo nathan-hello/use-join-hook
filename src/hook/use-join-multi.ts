@@ -30,11 +30,12 @@ export function useJoinMulti<T extends keyof SignalMap>(
     [globalParams?.forceMock],
   );
 
-  const [joins, initialState] = useMemo(
-    () => getJoin(options, CrComLib.getState),
-    [options],
+  const defaultValue = { boolean: false, number: 0, string: "" }[options.type];
+
+  const joins = getJoin(options);
+  const [state, setState] = useState<SignalMap[T][]>(
+    Array.from({ length: joins.length }, () => defaultValue),
   );
-  const [state, setState] = useState<SignalMap[T][]>(initialState);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -55,6 +56,15 @@ export function useJoinMulti<T extends keyof SignalMap>(
           });
         },
       );
+
+      const initialValue = CrComLib.getState(options.type, join);
+      if (initialValue !== null) {
+        setState((prev) => {
+          const copy = [...prev];
+          copy[index] = initialValue;
+          return copy;
+        });
+      }
 
       registerJoin(
         options.type,
@@ -129,11 +139,8 @@ joins array: ${JSON.stringify(joins)}
 
 function getJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
-  getState: CrComLibInterface["getState"],
-): [string[], SignalMap[T][]] {
+): string[] {
   let joins: string[] = [];
-  let initialState: SignalMap[T][] = [];
-  const defaultValue = { boolean: false, number: 0, string: "" }[options.type];
 
   let offset = 0;
 
@@ -154,19 +161,13 @@ function getJoin<T extends keyof SignalMap>(
       }
       throw new Error("useJoinMulti: join type was not a string or number");
     });
-    initialState = joins.map(
-      (join) => getState(options.type, join) ?? defaultValue,
-    );
-    return [joins, initialState];
+    return joins;
   }
 
   const joinRange = options.join;
   joins = Array.from({ length: joinRange.end - joinRange.start + 1 }, (_, i) =>
     (joinRange.start + i + offset).toString(),
   );
-  initialState = joins.map(
-    (join) => getState(options.type, join) ?? defaultValue,
-  );
 
-  return [joins, initialState];
+  return joins;
 }

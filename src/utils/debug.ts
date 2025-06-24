@@ -62,6 +62,9 @@ function getJoinDebug(type: keyof SignalMap, join: string | number) {
 
 // Expose to window for debugging
 if (typeof window !== "undefined") {
-  (window as any).getJoin = getJoinDebug;
-  (window as any).setJoin = setJoinDebug;
+  (window as any).join = {
+    set: setJoinDebug,
+    get: getJoinDebug,
+    registry: joinRegistry,
+  };
 }

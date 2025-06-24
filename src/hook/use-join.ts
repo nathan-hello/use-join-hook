@@ -53,12 +53,11 @@ export function useJoin<T extends keyof SignalMap>(
     [globalParams?.forceMock],
   );
 
-  const [join, initialValue] = useMemo(
-    () => getJoin(options, CrComLib.getState),
-    [options],
-  );
+  const join = getJoin(options);
 
-  const [state, setState] = useState<SignalMap[T]>(initialValue);
+  const [state, setState] = useState<SignalMap[T]>(
+    { boolean: false, number: 0, string: "" }[options.type],
+  );
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -75,6 +74,11 @@ export function useJoin<T extends keyof SignalMap>(
         setState(value);
       },
     );
+
+    const initialValue = CrComLib.getState(options.type, join);
+    if (initialValue !== null) {
+      setState(initialValue);
+    }
 
     return () => {
       unregisterJoin(options.type, join);
@@ -111,13 +115,9 @@ export function useJoin<T extends keyof SignalMap>(
 
 function getJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin>,
-  getState: CrComLibInterface["getState"],
-): [string, SignalMap[T]] {
-  const defaultValue = { boolean: false, number: 0, string: "" }[options.type];
-
+): string {
   if (typeof options.join === "string") {
-    const val = getState(options.type, options.join) ?? defaultValue;
-    return [options.join, val];
+    return options.join;
   }
 
   let offset = 0;
@@ -131,6 +131,5 @@ function getJoin<T extends keyof SignalMap>(
 
   const joinWithOffset = options.join + offset;
 
-  const val = getState(options.type, joinWithOffset.toString()) ?? defaultValue;
-  return [joinWithOffset.toString(), val];
+  return joinWithOffset.toString();
 }
