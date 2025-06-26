@@ -1,4 +1,4 @@
-import { JoinMap, MockLogicWave, JoinParams, LogFunction } from "use-join";
+import { JoinMap, MockLogicWave, JoinParams } from "use-join";
 
 export const J = {
   Audio: {
@@ -11,6 +11,7 @@ export const J = {
     },
   },
   ManyStrings: { type: "string", join: { start: 1, end: 4 } },
+  Id: { join: 3, type: "number" },
 } as const satisfies JoinMap;
 
 const LogicWaveReverseString: MockLogicWave<"string"> = (v, get, pub) => {

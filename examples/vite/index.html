@@ -3,12 +3,25 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <link href="/src/styles.css" rel="stylesheet">
+    <link href="/src/styles.css" rel="stylesheet" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vite + React + TS</title>
+    <script></script>
   </head>
   <body>
     <div id="root"></div>
+    <!-- 
+    This is React-Scan. It's a diagnostic tool for measuring performance bottlenecks.
+    https://github.com/aidenybai/react-scan
+    -->
+    <!-- <script src="https://unpkg.com/react-scan/dist/auto.global.js"></script> -->
+    <!-- 
+      This is the Chii script. It is a package for remote debugging tools.
+      Run `npm install -g chii` and then `chii start -p 8080`.
+      Open localhost:8080 in the web browser and you will see the console
+      of the touchpanel.
+    -->
+    <script defer src="http://10.1.0.83:8080/target.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
