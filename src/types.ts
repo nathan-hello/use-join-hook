@@ -114,7 +114,7 @@ export type LogFunction<
   args: {
     options: PUseJoin<T, K>;
     join: string;
-    direction: "sent" | "recieved";
+    direction: "sent" | "recieved" | "init'd";
     value: SignalMap[T];
   } & (K extends MultiJoin ? { index: number } : { index?: never }),
 ) => string | void;

@@ -30,12 +30,21 @@ export function useJoinMulti<T extends keyof SignalMap>(
     [globalParams?.forceMock],
   );
 
-  const defaultValue = { boolean: false, number: 0, string: "" }[options.type];
-
   const joins = getJoin(options);
-  const [state, setState] = useState<SignalMap[T][]>(
-    Array.from({ length: joins.length }, () => defaultValue),
-  );
+  const [state, setState] = useState<SignalMap[T][]>(() => {
+    const initialValue = joins.map((join, index) => {
+      const value = CrComLib.getState(options.type, join);
+      if (value === null) {
+        return { boolean: false, number: 0, string: "" }[options.type];
+      }
+      logger(
+        { options, join, value, index, direction: "init'd" },
+        globalParams?.logger,
+      );
+      return value;
+    });
+    return initialValue;
+  });
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -56,15 +65,6 @@ export function useJoinMulti<T extends keyof SignalMap>(
           });
         },
       );
-
-      const initialValue = CrComLib.getState(options.type, join);
-      if (initialValue !== null) {
-        setState((prev) => {
-          const copy = [...prev];
-          copy[index] = initialValue;
-          return copy;
-        });
-      }
 
       registerJoin(
         options.type,
@@ -132,7 +132,7 @@ joins array: ${JSON.stringify(joins)}
     }
 
     return pub;
-  }, [options, joins, state, CrComLib, globalParams?.logger]);
+  }, [options, joins, state, globalParams]);
 
   return [state, pubState];
 }

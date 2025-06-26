@@ -55,9 +55,18 @@ export function useJoin<T extends keyof SignalMap>(
 
   const join = getJoin(options);
 
-  const [state, setState] = useState<SignalMap[T]>(
-    { boolean: false, number: 0, string: "" }[options.type],
-  );
+  const [state, setState] = useState<SignalMap[T]>(() => {
+    const initialValue = CrComLib.getState(options.type, join);
+    if (initialValue !== null) {
+      logger(
+        { options, join, direction: "init'd", value: initialValue },
+        globalParams?.logger,
+      );
+      return initialValue;
+    }
+    return { boolean: false, number: 0, string: "" }[options.type];
+  });
+
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -74,11 +83,6 @@ export function useJoin<T extends keyof SignalMap>(
         setState(value);
       },
     );
-
-    const initialValue = CrComLib.getState(options.type, join);
-    if (initialValue !== null) {
-      setState(initialValue);
-    }
 
     return () => {
       unregisterJoin(options.type, join);
