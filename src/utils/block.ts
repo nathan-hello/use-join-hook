@@ -6,6 +6,24 @@ type BlockProps = {
 };
 
 function BlockUntilCsigSync(props?: BlockProps): Promise<void> {
+  return block(
+    "Csig.State_Synchronization",
+    () => {
+      CrComLib.publishEvent("object", "Csig.State_Synchronization", {});
+    },
+    props,
+  );
+}
+
+function BlockUntilAllSystemsOnline(props?: BlockProps): Promise<void> {
+  return block("Csig.All_Control_Systems_Online_fb", undefined, props);
+}
+
+function block(
+  subscribe: string,
+  publish: (() => void) | undefined,
+  props: BlockProps | undefined,
+): Promise<void> {
   if (props?.isMock) {
     return Promise.resolve();
   }
@@ -14,30 +32,24 @@ function BlockUntilCsigSync(props?: BlockProps): Promise<void> {
 
   const timeoutPromise = new Promise<void>((resolve) => {
     timeoutId = setTimeout(() => {
-      console.warn(
-        `Csig.State_Synchronization: ${ms}ms timeout reached, proceeding anyway`,
-      );
+      console.warn(`${subscribe}: ${ms}ms timeout reached, proceeding anyway`);
       resolve();
     }, ms);
   });
 
   const syncPromise = new Promise<void>((resolve) => {
-    const id = CrComLib.subscribeState(
-      "object",
-      "Csig.State_Synchronization",
-      (value: any) => {
-        if (value?.state === "EndOfUpdate") {
-          CrComLib.unsubscribeState("object", "Csig.State_Synchronization", id);
-          console.log(`"Csig.State_Synchronization: EndOfUpdate. Success.`);
-          clearTimeout(timeoutId);
-          resolve();
-        }
-      },
-    );
-    CrComLib.publishEvent("object", "Csig.State_Synchronization", {});
+    const id = CrComLib.subscribeState("object", subscribe, (value: any) => {
+      if (value?.state === "EndOfUpdate") {
+        CrComLib.unsubscribeState("object", subscribe, id);
+        console.log(`${subscribe}: EndOfUpdate. Success.`);
+        clearTimeout(timeoutId);
+        resolve();
+      }
+    });
+    publish?.();
   });
 
   return Promise.race([syncPromise, timeoutPromise]);
 }
 
-export { BlockUntilCsigSync };
+export { BlockUntilCsigSync, BlockUntilAllSystemsOnline };
