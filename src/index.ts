@@ -3,4 +3,7 @@ export type * from "@/types.js";
 
 export { JoinParamsProvider } from "@/context.js";
 
-export { BlockUntilCsigSync } from "@/utils/block.js";
+export {
+  BlockUntilCsigSync,
+  BlockUntilAllSystemsOnline,
+} from "@/utils/block.js";
