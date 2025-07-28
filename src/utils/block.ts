@@ -1,19 +1,24 @@
 import { CrComLib } from "@pepperdash/ch5-crcomlib-lite";
 
-function BlockUntilCsigSync(isMock?: boolean): Promise<void> {
-  if (isMock) {
+type BlockProps = {
+  isMock?: boolean;
+  timeoutMs?: number;
+};
+
+function BlockUntilCsigSync(props?: BlockProps): Promise<void> {
+  if (props?.isMock) {
     return Promise.resolve();
   }
-
   let timeoutId: ReturnType<typeof setTimeout>;
+  let ms = props?.timeoutMs ?? 10000;
 
   const timeoutPromise = new Promise<void>((resolve) => {
     timeoutId = setTimeout(() => {
       console.warn(
-        "BlockUntilCsigSync: 10 second timeout reached, proceeding anyway",
+        `Csig.State_Synchronization: ${ms}ms timeout reached, proceeding anyway`,
       );
       resolve();
-    }, 10000);
+    }, ms);
   });
 
   const syncPromise = new Promise<void>((resolve) => {
@@ -23,9 +28,7 @@ function BlockUntilCsigSync(isMock?: boolean): Promise<void> {
       (value: any) => {
         if (value?.state === "EndOfUpdate") {
           CrComLib.unsubscribeState("object", "Csig.State_Synchronization", id);
-          console.log(
-            "BlockUntilCsigSync: Csig.State_Synchronization: EndOfUpdate. Success.",
-          );
+          console.log(`"Csig.State_Synchronization: EndOfUpdate. Success.`);
           clearTimeout(timeoutId);
           resolve();
         }
