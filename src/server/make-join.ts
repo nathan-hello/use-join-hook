@@ -14,8 +14,8 @@ import type {
 import { logger } from "@/utils/log.js";
 
 export type MakeJoinResult<
-  T extends keyof SignalMap,
-  K extends SingleJoin | MultiJoin,
+  T extends keyof SignalMap = keyof SignalMap,
+  K extends SingleJoin | MultiJoin = SingleJoin,
 > = {
   value: K extends SingleJoin ? SignalMap[T] : SignalMap[T][];
   publish: K extends SingleJoin
@@ -163,7 +163,7 @@ function makeJoinSingle<T extends keyof SignalMap>(
       if (debounceTimeout) clearTimeout(debounceTimeout);
       debounceTimeout = setTimeout(() => {
         originalPublish(value);
-      }, options.effects!.debounce);
+      }, options.effects?.debounce);
     };
   }
 
@@ -280,7 +280,7 @@ function makeJoinMulti<T extends keyof SignalMap>(
           { boolean: false, number: 0, string: "" }[options.type],
         );
         originalPublish(resetValues);
-      }, options.effects!.resetAfterMs);
+      }, options.effects?.resetAfterMs);
     };
   }
 
@@ -290,7 +290,7 @@ function makeJoinMulti<T extends keyof SignalMap>(
       if (debounceTimeout) clearTimeout(debounceTimeout);
       debounceTimeout = setTimeout(() => {
         originalPublish(values);
-      }, options.effects!.debounce);
+      }, options.effects?.debounce);
     };
   }
 
