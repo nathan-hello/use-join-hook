@@ -25,7 +25,7 @@ export function logger(
   const d = leftPad(direction, "received".length, " ");
   const v = rightPad(value.toString(), "false".length, " ");
   const k = options.key
-    ? "index" in params
+    ? "index" in params && params.index !== undefined
       ? `${options.key}[${params.index}]`
       : options.key
     : "";

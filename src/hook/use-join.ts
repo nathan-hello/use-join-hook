@@ -17,15 +17,8 @@ import type {
 } from "@/types.js";
 import { logger } from "@/utils/log.js";
 import { useJoinParamsContext } from "@/context.js";
-
-function joinIsArray<T extends keyof SignalMap>(
-  options: PUseJoin<T, SingleJoin> | PUseJoin<T, MultiJoin>,
-): options is PUseJoin<T, MultiJoin> {
-  return (
-    Array.isArray(options.join) ||
-    (typeof options.join === "object" && "start" in options.join)
-  );
-}
+import { getJoin, joinIsArray } from "@/utils/join.js";
+import { getJoinValue } from "@/utils/state.js";
 
 export function useJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
@@ -56,15 +49,7 @@ export function useJoin<T extends keyof SignalMap>(
   const join = getJoin(options);
 
   const [state, setState] = useState<SignalMap[T]>(() => {
-    const initialValue = CrComLib.getState(options.type, join);
-    if (initialValue !== null) {
-      logger(
-        { options, join, direction: "init'd", value: initialValue },
-        globalParams?.logger,
-      );
-      return initialValue;
-    }
-    return { boolean: false, number: 0, string: "" }[options.type];
+    return getJoinValue(join, options, globalParams);
   });
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -115,25 +100,4 @@ export function useJoin<T extends keyof SignalMap>(
   }, [options, state, CrComLib, globalParams?.logger]);
 
   return [state, pubState];
-}
-
-function getJoin<T extends keyof SignalMap>(
-  options: PUseJoin<T, SingleJoin>,
-): string {
-  if (typeof options.join === "string") {
-    return options.join;
-  }
-
-  let offset = 0;
-
-  if (typeof options.offset === "number") {
-    offset = options.offset;
-  }
-  if (typeof options.offset === "object") {
-    offset = options.offset[options.type] ?? 0;
-  }
-
-  const joinWithOffset = options.join + offset;
-
-  return joinWithOffset.toString();
 }

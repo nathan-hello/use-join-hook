@@ -13,6 +13,8 @@ import { pubDebounceMulti, pubWithTimeoutMulti } from "@/hook/effects.js";
 import { logger } from "@/utils/log.js";
 import { useJoinParamsContext } from "@/context.js";
 import { registerJoin, unregisterJoin } from "@/utils/debug.js";
+import { getJoinValue } from "@/utils/state.js";
+import { getJoins } from "@/utils/join.js";
 
 // This file is exported for internal use only.
 // To use useJoinArray, pass in a MultiJoin to options.join in useJoin
@@ -30,20 +32,11 @@ export function useJoinMulti<T extends keyof SignalMap>(
     [globalParams?.forceMock],
   );
 
-  const joins = getJoin(options);
+  const joins = getJoins(options);
   const [state, setState] = useState<SignalMap[T][]>(() => {
-    const initialValue = joins.map((join, index) => {
-      const value = CrComLib.getState(options.type, join);
-      if (value === null) {
-        return { boolean: false, number: 0, string: "" }[options.type];
-      }
-      logger(
-        { options, join, value, index, direction: "init'd" },
-        globalParams?.logger,
-      );
-      return value;
+    return joins.map((join, index) => {
+      return getJoinValue(join, options, globalParams, index);
     });
-    return initialValue;
   });
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,14 +89,15 @@ export function useJoinMulti<T extends keyof SignalMap>(
     > = (v) => {
       const nextValue = typeof v === "function" ? v(state) : v;
       if (nextValue.length !== joins.length) {
-        console.error(`
-useJoin pubState error: 
-given array was of a different length than originally set.
-length of value given: ${nextValue.length}
-length of original join array: ${joins.length}
-given value: ${JSON.stringify(nextValue)}
-joins array: ${JSON.stringify(joins)}
-`);
+        console.error(
+          "[use-join]: Publish array was longer than original join array:",
+          {
+            valuesLength: nextValue.length,
+            joinLength: joins.length,
+            originalValues: nextValue,
+            originalJoins: joins,
+          },
+        );
         return;
       }
 
@@ -135,39 +129,4 @@ joins array: ${JSON.stringify(joins)}
   }, [options, joins, state, globalParams]);
 
   return [state, pubState];
-}
-
-function getJoin<T extends keyof SignalMap>(
-  options: PUseJoin<T, MultiJoin>,
-): string[] {
-  let joins: string[] = [];
-
-  let offset = 0;
-
-  if (typeof options.offset === "number") {
-    offset = options.offset;
-  }
-  if (typeof options.offset === "object") {
-    offset = options.offset[options.type] ?? 0;
-  }
-
-  if (Array.isArray(options.join)) {
-    joins = options.join.map((j) => {
-      if (typeof j === "string") {
-        return j;
-      }
-      if (typeof j === "number") {
-        return (j + offset).toString();
-      }
-      throw new Error("useJoinMulti: join type was not a string or number");
-    });
-    return joins;
-  }
-
-  const joinRange = options.join;
-  joins = Array.from({ length: joinRange.end - joinRange.start + 1 }, (_, i) =>
-    (joinRange.start + i + offset).toString(),
-  );
-
-  return joins;
 }

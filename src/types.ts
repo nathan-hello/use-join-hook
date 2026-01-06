@@ -272,3 +272,17 @@ export type JoinParams = {
     EXPERIMENTAL_CrComLibMini?: boolean;
   };
 };
+
+export type MakeJoinResult<
+  T extends keyof SignalMap = keyof SignalMap,
+  K extends SingleJoin | MultiJoin = SingleJoin,
+> = {
+  value: K extends SingleJoin ? SignalMap[T] : SignalMap[T][];
+  publish: K extends SingleJoin
+    ? (value: SignalMap[T]) => void
+    : (values: (SignalMap[T] | undefined)[]) => void;
+  subscribe: K extends SingleJoin
+    ? (callback: (value: SignalMap[T]) => void) => void
+    : (callback: (values: SignalMap[T][]) => void) => void;
+  cleanup: () => void;
+};

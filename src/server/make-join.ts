@@ -9,126 +9,56 @@ import type {
   MultiJoin,
   PUseJoin,
   SingleJoin,
-  LogFunction,
+  JoinParams,
+  MakeJoinResult,
 } from "@/types.js";
 import { logger } from "@/utils/log.js";
+import { getJoin, getJoins, joinIsArray } from "@/utils/join.js";
+import { getJoinValue } from "@/utils/state.js";
 
-export type MakeJoinResult<
-  T extends keyof SignalMap = keyof SignalMap,
-  K extends SingleJoin | MultiJoin = SingleJoin,
-> = {
-  value: K extends SingleJoin ? SignalMap[T] : SignalMap[T][];
-  publish: K extends SingleJoin
-    ? (value: SignalMap[T]) => void
-    : (values: (SignalMap[T] | undefined)[]) => void;
-  subscribe: K extends SingleJoin
-    ? (callback: (value: SignalMap[T]) => void) => void
-    : (callback: (values: SignalMap[T][]) => void) => void;
-  cleanup: () => void;
-};
+let globalParams: JoinParams | undefined = undefined;
 
-export type MakeJoinParams = {
-  forceMock?: boolean;
-  logger?: boolean | LogFunction;
-};
-
-function joinIsArray<T extends keyof SignalMap>(
-  options: PUseJoin<T, SingleJoin> | PUseJoin<T, MultiJoin>,
-): options is PUseJoin<T, MultiJoin> {
-  return (
-    Array.isArray(options.join) ||
-    (typeof options.join === "object" && "start" in options.join)
-  );
-}
-
-function getJoin<T extends keyof SignalMap>(
-  options: PUseJoin<T, SingleJoin>,
-): string {
-  if (typeof options.join === "string") {
-    return options.join;
-  }
-
-  let offset = 0;
-
-  if (typeof options.offset === "number") {
-    offset = options.offset;
-  }
-  if (typeof options.offset === "object") {
-    offset = options.offset[options.type] ?? 0;
-  }
-
-  const joinWithOffset = options.join + offset;
-
-  return joinWithOffset.toString();
-}
-
-function getJoins<T extends keyof SignalMap>(
-  options: PUseJoin<T, MultiJoin>,
-): string[] {
-  const { join } = options;
-  let offset = 0;
-
-  if (typeof options.offset === "number") {
-    offset = options.offset;
-  }
-  if (typeof options.offset === "object") {
-    offset = options.offset[options.type] ?? 0;
-  }
-
-  if (Array.isArray(join)) {
-    return join.map((j) => {
-      if (typeof j === "string") return j;
-      return (j + offset).toString();
-    });
-  } else {
-    const joins: string[] = [];
-    for (let i = join.start; i <= join.end; i++) {
-      joins.push((i + offset).toString());
-    }
-    return joins;
-  }
+/**
+ * Set global parameters for all makeJoin calls.
+ * Similar to JoinParamsProvider in the React hook version.
+ *
+ * @example
+ * ```ts
+ * setMakeJoinParams({
+ *   logger: true,
+ *   forceMock: true
+ * });
+ * ```
+ */
+export function setMakeJoinParams(params: JoinParams | undefined): void {
+  globalParams = params;
 }
 
 export function makeJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
-  params?: MakeJoinParams,
 ): MakeJoinResult<T, MultiJoin>;
 export function makeJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin>,
-  params?: MakeJoinParams,
 ): MakeJoinResult<T, SingleJoin>;
 export function makeJoin<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin> | PUseJoin<T, MultiJoin>,
-  params?: MakeJoinParams,
 ): MakeJoinResult<T, SingleJoin | MultiJoin> {
   if (joinIsArray(options)) {
-    return makeJoinMulti(options as PUseJoin<T, MultiJoin>, params);
+    return makeJoinMulti(options);
   }
-  return makeJoinSingle(options as PUseJoin<T, SingleJoin>, params);
+  return makeJoinSingle(options);
 }
 
 function makeJoinSingle<T extends keyof SignalMap>(
   options: PUseJoin<T, SingleJoin>,
-  params?: MakeJoinParams,
 ): MakeJoinResult<T, SingleJoin> {
   const CrComLib: CrComLibInterface =
-    params?.forceMock ||
+    globalParams?.forceMock ||
     (!RealCrComLib.isCrestronTouchscreen() && !RealCrComLib.isIosDevice())
       ? MockCrComLib
       : (RealCrComLib as CrComLibInterface);
 
   const join = getJoin(options);
-
-  // Get initial value
-  let currentValue = CrComLib.getState(options.type, join);
-  if (currentValue === null) {
-    currentValue = { boolean: false, number: 0, string: "" }[options.type];
-  } else {
-    logger(
-      { options, join, direction: "init'd", value: currentValue },
-      params?.logger,
-    );
-  }
 
   // Track subscription IDs
   const subscriptionIds: string[] = [];
@@ -137,9 +67,28 @@ function makeJoinSingle<T extends keyof SignalMap>(
   // Create debounce timeout holder
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  let currentValue = getJoinValue(join, options, globalParams);
+
+  // Auto-subscribe to keep currentValue up-to-date
+  const autoSubId = CrComLib.subscribeState(
+    options.type,
+    join,
+    (value: SignalMap[T]) => {
+      logger(
+        { options, join, direction: "recieved", value },
+        globalParams?.logger,
+      );
+      currentValue = value;
+      if (userCallback) {
+        userCallback(value);
+      }
+    },
+  );
+  subscriptionIds.push(autoSubId);
+
   // Create publish function
   let publish = (value: SignalMap[T]) => {
-    logger({ options, join, direction: "sent", value }, params?.logger);
+    logger({ options, join, direction: "sent", value }, globalParams?.logger);
     CrComLib.publishEvent(options.type, join, value);
     currentValue = value;
   };
@@ -167,22 +116,9 @@ function makeJoinSingle<T extends keyof SignalMap>(
     };
   }
 
-  // Subscribe function
+  // Subscribe function - for adding custom side effects
   const subscribe = (callback: (value: SignalMap[T]) => void) => {
     userCallback = callback;
-
-    const id = CrComLib.subscribeState(
-      options.type,
-      join,
-      (value: SignalMap[T]) => {
-        logger({ options, join, direction: "recieved", value }, params?.logger);
-        currentValue = value;
-        if (userCallback) {
-          userCallback(value);
-        }
-      },
-    );
-    subscriptionIds.push(id);
   };
 
   // Cleanup function
@@ -197,7 +133,9 @@ function makeJoinSingle<T extends keyof SignalMap>(
   };
 
   return {
-    value: currentValue,
+    get value() {
+      return currentValue;
+    },
     publish,
     subscribe,
     cleanup,
@@ -206,10 +144,9 @@ function makeJoinSingle<T extends keyof SignalMap>(
 
 function makeJoinMulti<T extends keyof SignalMap>(
   options: PUseJoin<T, MultiJoin>,
-  params?: MakeJoinParams,
 ): MakeJoinResult<T, MultiJoin> {
   const CrComLib: CrComLibInterface =
-    params?.forceMock ||
+    globalParams?.forceMock ||
     (!RealCrComLib.isCrestronTouchscreen() && !RealCrComLib.isIosDevice())
       ? MockCrComLib
       : (RealCrComLib as CrComLibInterface);
@@ -218,20 +155,7 @@ function makeJoinMulti<T extends keyof SignalMap>(
 
   // Get initial values
   const currentValues = joins.map((join, index) => {
-    const value = CrComLib.getState(options.type, join);
-    const initialValue =
-      value !== null
-        ? value
-        : { boolean: false, number: 0, string: "" }[options.type];
-
-    if (value !== null) {
-      logger(
-        { options, join, direction: "init'd", value: initialValue, index },
-        params?.logger,
-      );
-    }
-
-    return initialValue;
+    return getJoinValue(join, options, globalParams, index);
   });
 
   // Track subscription IDs
@@ -240,6 +164,25 @@ function makeJoinMulti<T extends keyof SignalMap>(
 
   // Create debounce timeout holder
   let debounceTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Auto-subscribe all joins to keep currentValues up-to-date
+  joins.forEach((join, index) => {
+    const autoSubId = CrComLib.subscribeState(
+      options.type,
+      join,
+      (value: SignalMap[T]) => {
+        logger(
+          { options, join, direction: "recieved", value, index },
+          globalParams?.logger,
+        );
+        currentValues[index] = value;
+        if (userCallback) {
+          userCallback([...currentValues]);
+        }
+      },
+    );
+    subscriptionIds.push(autoSubId);
+  });
 
   // Create publish function
   let publish = (values: (SignalMap[T] | undefined)[]) => {
@@ -262,7 +205,7 @@ function makeJoinMulti<T extends keyof SignalMap>(
         }
         logger(
           { options, join: j, direction: "sent", value, index },
-          params?.logger,
+          globalParams?.logger,
         );
         CrComLib.publishEvent(options.type, j, value);
         currentValues[index] = value;
@@ -294,27 +237,9 @@ function makeJoinMulti<T extends keyof SignalMap>(
     };
   }
 
-  // Subscribe function
+  // Subscribe function - for adding custom side effects
   const subscribe = (callback: (values: SignalMap[T][]) => void) => {
     userCallback = callback;
-
-    joins.forEach((join, index) => {
-      const id = CrComLib.subscribeState(
-        options.type,
-        join,
-        (value: SignalMap[T]) => {
-          logger(
-            { options, join, direction: "recieved", value, index },
-            params?.logger,
-          );
-          currentValues[index] = value;
-          if (userCallback) {
-            userCallback([...currentValues]);
-          }
-        },
-      );
-      subscriptionIds.push(id);
-    });
   };
 
   // Cleanup function
@@ -331,7 +256,9 @@ function makeJoinMulti<T extends keyof SignalMap>(
   };
 
   return {
-    value: currentValues,
+    get value() {
+      return [...currentValues];
+    },
     publish,
     subscribe,
     cleanup,
