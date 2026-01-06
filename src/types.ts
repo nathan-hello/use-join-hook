@@ -295,6 +295,6 @@ export type MakeJoinResult<
  * None of the `undefined` values will be sent to the processor.
  */
 type MakeJoinMultiPublisher<T extends keyof SignalMap> = (
-  utility: undefined[],
+  utility: (SignalMap[T] | undefined)[],
   prev: SignalMap[T][],
 ) => (SignalMap[T] | undefined)[];
