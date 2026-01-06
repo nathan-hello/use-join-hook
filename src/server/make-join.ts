@@ -87,16 +87,22 @@ function makeJoinSingle<T extends keyof SignalMap>(
   subscriptionIds.push(autoSubId);
 
   // Create publish function
-  let publish = (value: SignalMap[T]) => {
-    logger({ options, join, direction: "sent", value }, globalParams?.logger);
-    CrComLib.publishEvent(options.type, join, value);
-    currentValue = value;
+  let publish = (
+    value: SignalMap[T] | ((prev: SignalMap[T]) => SignalMap[T]),
+  ) => {
+    const nextValue = typeof value === "function" ? value(currentValue) : value;
+    logger(
+      { options, join, direction: "sent", value: nextValue },
+      globalParams?.logger,
+    );
+    CrComLib.publishEvent(options.type, join, nextValue);
+    currentValue = nextValue;
   };
 
   // Apply effects
   if (options?.effects?.resetAfterMs) {
     const originalPublish = publish;
-    publish = (value: SignalMap[T]) => {
+    publish = (value) => {
       originalPublish(value);
       setTimeout(() => {
         originalPublish(
@@ -108,7 +114,7 @@ function makeJoinSingle<T extends keyof SignalMap>(
 
   if (options?.effects?.debounce) {
     const originalPublish = publish;
-    publish = (value: SignalMap[T]) => {
+    publish = (value) => {
       if (debounceTimeout) clearTimeout(debounceTimeout);
       debounceTimeout = setTimeout(() => {
         originalPublish(value);
@@ -184,39 +190,49 @@ function makeJoinMulti<T extends keyof SignalMap>(
     subscriptionIds.push(autoSubId);
   });
 
-  // Create publish function
-  let publish = (values: (SignalMap[T] | undefined)[]) => {
-    values.forEach((value, index) => {
-      if (value !== undefined) {
-        const j = joins[index];
-        if (j === undefined) {
-          console.error(
-            "[use-join]: Publish array was longer than original join array:",
-            {
-              valuesLength: values.length,
-              joinLength: joins.length,
-              value,
-              index,
-              originalValues: values,
-              originalJoins: joins,
-            },
-          );
-          return;
-        }
-        logger(
-          { options, join: j, direction: "sent", value, index },
-          globalParams?.logger,
-        );
-        CrComLib.publishEvent(options.type, j, value);
-        currentValues[index] = value;
+  let publish: MakeJoinResult<T, MultiJoin>["publish"] = (values) => {
+    const nextValues =
+      typeof values === "function"
+        ? values(
+            Array.from({ length: joins.length }).map(() => undefined),
+            currentValues,
+          )
+        : values;
+
+    nextValues.forEach((value, index) => {
+      if (value === undefined) {
+        return;
       }
+
+      const j = joins[index];
+      if (j === undefined) {
+        console.error(
+          "[use-join]: Publish array was longer than original join array:",
+          {
+            valuesLength: nextValues.length,
+            joinLength: joins.length,
+            value,
+            index,
+            originalValues: nextValues,
+            originalJoins: joins,
+          },
+        );
+        return;
+      }
+
+      logger(
+        { options, join: j, direction: "sent", value, index },
+        globalParams?.logger,
+      );
+      CrComLib.publishEvent(options.type, j, value);
+      currentValues[index] = value;
     });
   };
 
   // Apply effects
   if (options?.effects?.resetAfterMs) {
     const originalPublish = publish;
-    publish = (values: (SignalMap[T] | undefined)[]) => {
+    publish = (values) => {
       originalPublish(values);
       setTimeout(() => {
         const resetValues = new Array(joins.length).fill(
@@ -229,7 +245,7 @@ function makeJoinMulti<T extends keyof SignalMap>(
 
   if (options?.effects?.debounce) {
     const originalPublish = publish;
-    publish = (values: (SignalMap[T] | undefined)[]) => {
+    publish = (values) => {
       if (debounceTimeout) clearTimeout(debounceTimeout);
       debounceTimeout = setTimeout(() => {
         originalPublish(values);

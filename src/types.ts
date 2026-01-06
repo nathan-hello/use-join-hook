@@ -279,10 +279,22 @@ export type MakeJoinResult<
 > = {
   value: K extends SingleJoin ? SignalMap[T] : SignalMap[T][];
   publish: K extends SingleJoin
-    ? (value: SignalMap[T]) => void
-    : (values: (SignalMap[T] | undefined)[]) => void;
+    ? (value: SignalMap[T] | ((prev: SignalMap[T]) => SignalMap[T])) => void
+    : (
+        values: (SignalMap[T] | undefined)[] | MakeJoinMultiPublisher<T>,
+      ) => void;
   subscribe: K extends SingleJoin
     ? (callback: (value: SignalMap[T]) => void) => void
     : (callback: (values: SignalMap[T][]) => void) => void;
   cleanup: () => void;
 };
+
+/**
+ * This will give you an array of undefined elements.
+ * Mutate whatever index you would like to change in this array.
+ * None of the `undefined` values will be sent to the processor.
+ */
+type MakeJoinMultiPublisher<T extends keyof SignalMap> = (
+  utility: undefined[],
+  prev: SignalMap[T][],
+) => (SignalMap[T] | undefined)[];
