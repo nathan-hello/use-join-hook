@@ -1,6 +1,6 @@
 {
   "name": "use-join",
-  "version": "4.7.0",
+  "version": "4.7.1",
   "description": "A React hook for interacting with Crestron processors.",
   "type": "module",
   "main": "dist/use-join.umd.cjs",
@@ -32,7 +32,8 @@
     "vite": "^6.0.2"
   },
   "dependencies": {
-    "@pepperdash/ch5-crcomlib-lite": "^2.10.3"
+    "@pepperdash/ch5-crcomlib-lite": "^2.10.3",
+    "vite-plugin-dts": "^4.5.4"
   },
   "peerDependencies": {
     "react": "^19.0.0",
